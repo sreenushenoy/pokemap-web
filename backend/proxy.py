@@ -1,6 +1,10 @@
 """Fetches quest data from pokemap sites, acting as a CORS proxy."""
 
-import httpx, time, zoneinfo
+import httpx, time
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo
 from datetime import datetime, timedelta
 from cities import CITIES
 
