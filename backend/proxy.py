@@ -1,4 +1,5 @@
 """Fetches quest data from pokemap sites, acting as a CORS proxy."""
+from __future__ import annotations
 
 import httpx, time
 try:

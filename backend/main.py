@@ -1,6 +1,7 @@
 """
 PokéMap Quest Route Builder — FastAPI Backend
 """
+from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware

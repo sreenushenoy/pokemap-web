@@ -1,4 +1,5 @@
 """Route optimization and GPX file generation."""
+from __future__ import annotations
 
 import math, io, zipfile, re
 
