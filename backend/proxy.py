@@ -35,9 +35,10 @@ async def fetch_quests(city: str, filter_codes: list[str]) -> dict:
 
 async def fetch_available_filters(city: str) -> dict:
     """
-    Fetch the filters object from a pokemap site (no quest filter = returns available filters only).
-    Returns the 'filters' dict keyed by type (t2, t3, t7, t8, etc.)
+    Fetch and normalize filters for a city.
+    Returns a list of reward groups with filter codes and human-readable labels.
     """
+    from lookups import normalize_filters
     cfg = CITIES[city]
     base = cfg["base_url"]
     url = f"{base}/quests.php"
@@ -46,4 +47,5 @@ async def fetch_available_filters(city: str) -> dict:
         r = await client.get(url, params={"time": int(time.time() * 1000)}, headers=_headers(base))
         r.raise_for_status()
         data = r.json()
-        return data.get("filters", {})
+        raw = data.get("filters", {})
+        return normalize_filters(raw)

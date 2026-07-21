@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PokéMap Route Builder</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0f0f1a;
+    --surface:  #1a1a2e;
+    --card:     #16213e;
+    --border:   #2a2a4a;
+    --accent:   #e63946;
+    --blue:     #457b9d;
+    --text:     #e0e0f0;
+    --muted:    #7a7a9a;
+    --green:    #2dc653;
+    --yellow:   #f4a261;
+    --radius:   8px;
+  }
+
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100dvh;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    height: 52px;
+    flex-shrink: 0;
+  }
+  .logo { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .logo span { color: var(--accent); }
+
+  .city-tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .city-tabs::-webkit-scrollbar { display: none; }
+
+  .city-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    border: 1px solid transparent;
+    background: none;
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+    transition: all .15s;
+    line-height: 1.3;
+  }
+  .city-tab .flag { font-size: 18px; }
+  .city-tab .reset { font-size: 10px; margin-top: 1px; }
+  .city-tab:hover { background: var(--card); color: var(--text); }
+  .city-tab.active {
+    background: var(--card);
+    border-color: var(--accent);
+    color: var(--text);
+  }
+  .city-tab .reset.soon { color: var(--green); }
+  .city-tab .reset.very-soon { color: var(--yellow); }
+
+  /* ── Main layout ── */
+  .main {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-section {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  /* reward group tabs */
+  .group-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .group-tab {
+    padding: 5px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .group-tab:hover { border-color: var(--blue); color: var(--text); }
+  .group-tab.active { border-color: var(--accent); color: var(--text); background: #2a1520; }
+
+  /* sub-filter pills */
+  .filter-pills {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .filter-pill {
+    padding: 3px 9px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .filter-pill:hover { border-color: var(--blue); color: var(--text); }
+  .filter-pill.active { border-color: var(--blue); color: #a8d8ea; background: #0d2030; }
+
+  /* conditions list */
+  .conditions-scroll {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .condition-item {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background .1s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .condition-item:hover { background: var(--card); }
+  .condition-item.active { background: #16213e; border-left: 3px solid var(--accent); }
+  .cond-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .cond-info { flex: 1; min-width: 0; }
+  .cond-name { font-size: 12px; line-height: 1.3; }
+  .cond-count { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .cond-dl {
+    padding: 3px 8px;
+    font-size: 11px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .cond-dl:hover { border-color: var(--green); color: var(--green); }
+
+  /* bottom actions */
+  .sidebar-footer {
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+  }
+  .btn {
+    flex: 1;
+    padding: 8px;
+    border-radius: var(--radius);
+    border: none;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { opacity: .85; }
+  .btn-secondary { background: var(--card); border: 1px solid var(--border); color: var(--text); }
+  .btn-secondary:hover:not(:disabled) { border-color: var(--blue); }
+
+  /* stops count badge */
+  .top-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .top-control input[type=range] { flex: 1; accent-color: var(--accent); }
+  .top-control span { min-width: 36px; text-align: right; color: var(--text); }
+
+  /* ── Map ── */
+  #map {
+    width: 100%;
+    height: 100%;
+    background: #111;
+  }
+
+  /* ── States ── */
+  .empty-state {
+    padding: 24px 14px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .total-badge {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: auto;
+  }
+  .total-badge b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Poké<span>Map</span> Route Builder</div>
+  <div class="city-tabs" id="cityTabs"></div>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="sidebar-section" id="filterSection">
+      <div class="empty-state">Select a city above to load today's available quests.</div>
+    </div>
+
+    <div class="conditions-scroll" id="conditionsList">
+    </div>
+
+    <div class="sidebar-footer">
+      <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+        <div class="top-control">
+          <span style="flex:0 0 auto">Max stops/route:</span>
+          <input type="range" id="topSlider" min="10" max="300" value="120" step="10">
+          <span id="topVal">120</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-primary" id="btnZip" disabled>⬇ Download All ZIP</button>
+          <button class="btn btn-secondary" id="btnClear" disabled>Clear</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="map"></div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+
+// ── State ──────────────────────────────────────────────────────────────────────
+const state = {
+  city: null,
+  cityMeta: [],
+  filters: [],          // normalized filter groups from API
+  activeGroup: null,    // selected group id
+  activeSubFilters: [], // selected filter codes within group
+  quests: [],
+  conditions: {},       // {condName: count}
+  activeCondition: null,
+  markers: [],
+  map: null,
+  layerGroups: {},      // condName → L.LayerGroup
+};
+
+const COLORS = ['#e63946','#457b9d','#2dc653','#f4a261','#a8dadc','#e9c46a','#f28482','#84a98c','#c77dff','#48cae4'];
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+async function init() {
+  initMap();
+  await loadCities();
+  startClocks();
+}
+
+function initMap() {
+  state.map = L.map('map', { zoomControl: true }).setView([1.35, 103.82], 12);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    maxZoom: 19,
+  }).addTo(state.map);
+}
+
+// ── Cities ─────────────────────────────────────────────────────────────────────
+async function loadCities() {
+  const res = await fetch(`${API}/api/cities`);
+  state.cityMeta = await res.json();
+  renderCityTabs();
+}
+
+function renderCityTabs() {
+  const el = document.getElementById('cityTabs');
+  el.innerHTML = '';
+  for (const c of state.cityMeta) {
+    const tab = document.createElement('button');
+    tab.className = 'city-tab' + (state.city === c.id ? ' active' : '');
+    tab.dataset.id = c.id;
+    tab.innerHTML = `
+      <span class="flag">${c.flag}</span>
+      <span>${c.name}</span>
+      <span class="reset" id="reset-${c.id}">--:--</span>
+    `;
+    tab.addEventListener('click', () => selectCity(c.id));
+    el.appendChild(tab);
+  }
+}
+
+async function selectCity(cityId) {
+  if (state.city === cityId) return;
+  state.city = cityId;
+  state.activeGroup = null;
+  state.activeSubFilters = [];
+  state.quests = [];
+  state.conditions = {};
+  state.activeCondition = null;
+
+  document.querySelectorAll('.city-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.id === cityId)
+  );
+
+  clearMap();
+  showFilterLoading();
+  await loadFilters(cityId);
+  renderConditions();
+  updateButtons();
+
+  // pan map to city
+  const centers = {
+    sg:  [1.35, 103.82],
+    syd: [-33.87, 151.21],
+    lon: [51.51, -0.13],
+    nyc: [40.71, -74.01],
+    van: [49.28, -123.12],
+  };
+  if (centers[cityId]) state.map.setView(centers[cityId], 12);
+}
+
+// ── Filters ────────────────────────────────────────────────────────────────────
+function showFilterLoading() {
+  document.getElementById('filterSection').innerHTML = `
+    <div class="loading"><div class="spinner"></div> Loading today's quests…</div>
+  `;
+}
+
+async function loadFilters(cityId) {
+  try {
+    const res = await fetch(`${API}/api/filters?city=${cityId}`);
+    state.filters = await res.json();
+    renderFilterSection();
+  } catch (e) {
+    document.getElementById('filterSection').innerHTML =
+      `<div class="empty-state">Failed to load filters.<br>${e.message}</div>`;
+  }
+}
+
+function renderFilterSection() {
+  const sec = document.getElementById('filterSection');
+  if (!state.filters.length) {
+    sec.innerHTML = '<div class="empty-state">No quests available for this city today.</div>';
+    return;
+  }
+
+  sec.innerHTML = `
+    <div style="display:flex;align-items:center;margin-bottom:8px;">
+      <div class="section-title" style="margin:0">Reward Type</div>
+      <div class="total-badge" id="totalBadge" style="display:none"><b id="totalNum">0</b> stops</div>
+    </div>
+    <div class="group-tabs" id="groupTabs"></div>
+    <div class="filter-pills" id="filterPills"></div>
+  `;
+
+  const groupTabs = document.getElementById('groupTabs');
+  for (const g of state.filters) {
+    const btn = document.createElement('button');
+    btn.className = 'group-tab';
+    btn.dataset.group = g.group;
+    btn.textContent = `${g.icon} ${g.label}`;
+    btn.addEventListener('click', () => selectGroup(g.group));
+    groupTabs.appendChild(btn);
+  }
+}
+
+async function selectGroup(groupId) {
+  if (state.activeGroup === groupId) return;
+  state.activeGroup = groupId;
+  state.activeCondition = null;
+
+  // Update group tab styles
+  document.querySelectorAll('.group-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.group === groupId)
+  );
+
+  // Build sub-filter pills
+  const group = state.filters.find(g => g.group === groupId);
+  const pillsEl = document.getElementById('filterPills');
+  pillsEl.innerHTML = '';
+
+  // For encounters (many Pokémon) show an "All" toggle + individual pills
+  const allCodes = group.options.map(o => o.code);
+  state.activeSubFilters = [...allCodes]; // default: select all
+
+  if (group.options.length > 1) {
+    const allPill = document.createElement('button');
+    allPill.className = 'filter-pill active';
+    allPill.dataset.code = '__all__';
+    allPill.textContent = 'All';
+    allPill.addEventListener('click', () => toggleAllPills(group));
+    pillsEl.appendChild(allPill);
+  }
+
+  for (const opt of group.options) {
+    const pill = document.createElement('button');
+    pill.className = 'filter-pill active';
+    pill.dataset.code = opt.code;
+    pill.textContent = opt.label;
+    pill.addEventListener('click', () => togglePill(opt.code, group));
+    pillsEl.appendChild(pill);
+  }
+
+  await fetchAndRender();
+}
+
+function toggleAllPills(group) {
+  const pills = document.querySelectorAll('.filter-pill:not([data-code="__all__"])');
+  const allCodes = group.options.map(o => o.code);
+  const allActive = state.activeSubFilters.length === allCodes.length;
+
+  if (allActive) {
+    state.activeSubFilters = [];
+    pills.forEach(p => p.classList.remove('active'));
+    document.querySelector('.filter-pill[data-code="__all__"]').classList.remove('active');
+  } else {
+    state.activeSubFilters = [...allCodes];
+    pills.forEach(p => p.classList.add('active'));
+    document.querySelector('.filter-pill[data-code="__all__"]').classList.add('active');
+  }
+  fetchAndRender();
+}
+
+function togglePill(code, group) {
+  const idx = state.activeSubFilters.indexOf(code);
+  if (idx === -1) {
+    state.activeSubFilters.push(code);
+  } else {
+    state.activeSubFilters.splice(idx, 1);
+  }
+  document.querySelector(`.filter-pill[data-code="${CSS.escape(code)}"]`)
+    ?.classList.toggle('active', idx === -1);
+
+  // Sync "All" pill
+  const allCodes = group.options.map(o => o.code);
+  const allPill = document.querySelector('.filter-pill[data-code="__all__"]');
+  if (allPill) allPill.classList.toggle('active', state.activeSubFilters.length === allCodes.length);
+
+  fetchAndRender();
+}
+
+// ── Quest fetch & render ───────────────────────────────────────────────────────
+async function fetchAndRender() {
+  if (!state.activeSubFilters.length) {
+    clearMap();
+    renderConditions();
+    return;
+  }
+
+  showConditionsLoading();
+  clearMap();
+
+  const params = new URLSearchParams({ city: state.city });
+  for (const code of state.activeSubFilters) params.append('filter', code);
+
+  // Build a human-readable label from active group
+  const group = state.filters.find(g => g.group === state.activeGroup);
+  const label = group ? group.label : 'Quest';
+  params.set('label', label);
+
+  try {
+    const res = await fetch(`${API}/api/quests?${params}`);
+    const data = await res.json();
+    state.quests = data.quests || [];
+    state.conditions = data.conditions || {};
+
+    const badge = document.getElementById('totalBadge');
+    const num = document.getElementById('totalNum');
+    if (badge && num) {
+      badge.style.display = '';
+      num.textContent = data.total;
+    }
+
+    renderConditions();
+    plotMarkers();
+    updateButtons();
+    fitMapToMarkers();
+  } catch (e) {
+    document.getElementById('conditionsList').innerHTML =
+      `<div class="empty-state">Error: ${e.message}</div>`;
+  }
+}
+
+// ── Map rendering ──────────────────────────────────────────────────────────────
+function plotMarkers() {
+  clearMap();
+  const condNames = Object.keys(state.conditions);
+
+  for (let ci = 0; ci < condNames.length; ci++) {
+    const cond = condNames[ci];
+    const color = COLORS[ci % COLORS.length];
+    const lg = L.layerGroup().addTo(state.map);
+    state.layerGroups[cond] = { layer: lg, color };
+
+    const quests = state.quests.filter(q => q.conditions_string === cond);
+    for (const q of quests) {
+      const m = L.circleMarker([parseFloat(q.lat), parseFloat(q.lng)], {
+        radius: 6,
+        fillColor: color,
+        color: '#fff',
+        weight: 1,
+        fillOpacity: 0.85,
+      }).bindPopup(`
+        <b>${escHtml(q.name || '')}</b><br>
+        <small>${escHtml(q.rewards_string || '')}</small><br>
+        <small style="color:#aaa">${escHtml(cond)}</small>
+      `);
+      lg.addLayer(m);
+    }
+  }
+}
+
+function clearMap() {
+  for (const k in state.layerGroups) {
+    state.map.removeLayer(state.layerGroups[k].layer);
+  }
+  state.layerGroups = {};
+}
+
+function fitMapToMarkers() {
+  const pts = state.quests.map(q => [parseFloat(q.lat), parseFloat(q.lng)]);
+  if (pts.length) state.map.fitBounds(L.latLngBounds(pts), { padding: [30, 30] });
+}
+
+// ── Conditions list ────────────────────────────────────────────────────────────
+function showConditionsLoading() {
+  document.getElementById('conditionsList').innerHTML =
+    '<div class="loading"><div class="spinner"></div> Fetching quests…</div>';
+}
+
+function renderConditions() {
+  const el = document.getElementById('conditionsList');
+  const conds = Object.entries(state.conditions);
+
+  if (!conds.length) {
+    el.innerHTML = '<div class="empty-state">No quests found.<br>Try a different filter or city.</div>';
+    return;
+  }
+
+  const condNames = Object.keys(state.conditions);
+  el.innerHTML = `<div class="sidebar-section" style="padding-bottom:4px">
+    <div class="section-title">Quest Conditions (${conds.length})</div>
+  </div>`;
+
+  for (let ci = 0; ci < conds.length; ci++) {
+    const [cond, count] = conds[ci];
+    const color = COLORS[ci % COLORS.length];
+    const item = document.createElement('div');
+    item.className = 'condition-item' + (state.activeCondition === cond ? ' active' : '');
+    item.dataset.cond = cond;
+    item.innerHTML = `
+      <div class="cond-dot" style="background:${color}"></div>
+      <div class="cond-info">
+        <div class="cond-name">${escHtml(cond)}</div>
+        <div class="cond-count">${count} stops</div>
+      </div>
+      <button class="cond-dl" data-cond="${escAttr(cond)}" title="Download GPX for this condition">GPX</button>
+    `;
+    item.querySelector('.cond-info').addEventListener('click', () => selectCondition(cond));
+    item.querySelector('.cond-dl').addEventListener('click', (e) => {
+      e.stopPropagation();
+      downloadSingleGpx(cond);
+    });
+    el.appendChild(item);
+  }
+}
+
+function selectCondition(cond) {
+  state.activeCondition = state.activeCondition === cond ? null : cond;
+
+  document.querySelectorAll('.condition-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.cond === state.activeCondition);
+  });
+
+  // Show/hide layer groups
+  for (const [c, { layer }] of Object.entries(state.layerGroups)) {
+    if (state.activeCondition === null || c === state.activeCondition) {
+      state.map.addLayer(layer);
+    } else {
+      state.map.removeLayer(layer);
+    }
+  }
+
+  // Fit map to selected condition
+  if (state.activeCondition) {
+    const pts = state.quests
+      .filter(q => q.conditions_string === state.activeCondition)
+      .map(q => [parseFloat(q.lat), parseFloat(q.lng)]);
+    if (pts.length) state.map.fitBounds(L.latLngBounds(pts), { padding: [30, 30] });
+  }
+}
+
+// ── Downloads ──────────────────────────────────────────────────────────────────
+function buildDownloadParams() {
+  const params = new URLSearchParams({ city: state.city });
+  for (const code of state.activeSubFilters) params.append('filter', code);
+  const group = state.filters.find(g => g.group === state.activeGroup);
+  params.set('label', group ? group.label : 'Quest');
+  params.set('top', document.getElementById('topSlider').value);
+  return params;
+}
+
+function downloadZip() {
+  if (!state.activeSubFilters.length) return;
+  const url = `${API}/api/gpx/zip?${buildDownloadParams()}`;
+  triggerDownload(url);
+}
+
+function downloadSingleGpx(cond) {
+  if (!state.activeSubFilters.length) return;
+  const params = buildDownloadParams();
+  params.set('condition', cond);
+  triggerDownload(`${API}/api/gpx/single?${params}`);
+}
+
+function triggerDownload(url) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.click();
+}
+
+// ── Clocks & quest reset countdowns ───────────────────────────────────────────
+function startClocks() {
+  updateClocks();
+  setInterval(updateClocks, 30000);
+}
+
+function updateClocks() {
+  for (const c of state.cityMeta) {
+    const el = document.getElementById(`reset-${c.id}`);
+    if (!el) continue;
+
+    const now = new Date();
+    const localStr = now.toLocaleString('en-US', { timeZone: c.tz });
+    const local = new Date(localStr);
+
+    // Midnight tonight in that city
+    const midnight = new Date(localStr);
+    midnight.setHours(24, 0, 0, 0);
+    const diffMs = midnight - local;
+    const h = Math.floor(diffMs / 3600000);
+    const m = Math.floor((diffMs % 3600000) / 60000);
+
+    el.textContent = `reset ${h}h ${m}m`;
+    el.className = 'reset' + (h < 1 ? ' very-soon' : h < 3 ? ' soon' : '');
+  }
+}
+
+// ── Controls ───────────────────────────────────────────────────────────────────
+function updateButtons() {
+  const hasData = state.quests.length > 0;
+  document.getElementById('btnZip').disabled = !hasData;
+  document.getElementById('btnClear').disabled = !hasData;
+}
+
+document.getElementById('topSlider').addEventListener('input', function() {
+  document.getElementById('topVal').textContent = this.value;
+});
+
+document.getElementById('btnZip').addEventListener('click', downloadZip);
+
+document.getElementById('btnClear').addEventListener('click', () => {
+  state.activeGroup = null;
+  state.activeSubFilters = [];
+  state.quests = [];
+  state.conditions = {};
+  state.activeCondition = null;
+  clearMap();
+  renderConditions();
+  updateButtons();
+  document.querySelectorAll('.group-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('filterPills').innerHTML = '';
+  const badge = document.getElementById('totalBadge');
+  if (badge) badge.style.display = 'none';
+});
+
+// ── Utils ──────────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return String(s).replace(/"/g,'&quot;');
+}
+
+init();
+</script>
+</body>
+</html>

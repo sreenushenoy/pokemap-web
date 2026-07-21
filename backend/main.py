@@ -4,13 +4,13 @@ PokéMap Quest Route Builder — FastAPI Backend
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import io, os
 
-from cities import CITIES, REWARD_PRESETS
+from cities import CITIES
 from proxy import fetch_quests, fetch_available_filters
-from gpx import generate_gpx_zip, generate_single_gpx
+from gpx import generate_gpx_zip, generate_single_gpx, condition_slug
 
 app = FastAPI(title="PokéMap Route Builder API")
 
@@ -22,67 +22,53 @@ app.add_middleware(
 )
 
 
-# ── City & config endpoints ────────────────────────────────────────────────────
+def _require_city(city: str):
+    if city not in CITIES:
+        raise HTTPException(404, f"Unknown city '{city}'. Valid: {list(CITIES)}")
+
+
+def _require_filters(filter_codes: list[str]):
+    if not filter_codes:
+        raise HTTPException(400, "Provide at least one filter[] code.")
+
+
+# ── Config endpoints ───────────────────────────────────────────────────────────
 
 @app.get("/api/cities")
 def get_cities():
     return [
-        {"id": k, "name": v["name"], "flag": v["flag"]}
+        {"id": k, "name": v["name"], "flag": v["flag"], "tz": v["tz"]}
         for k, v in CITIES.items()
     ]
 
 
-@app.get("/api/rewards")
-def get_rewards():
-    return [
-        {"id": k, "label": v["label"], "filter": v["filter"]}
-        for k, v in REWARD_PRESETS.items()
-    ]
-
-
 @app.get("/api/filters")
-async def get_filters(city: str = Query(..., description="City code e.g. sg, syd, lon")):
-    if city not in CITIES:
-        raise HTTPException(404, f"Unknown city '{city}'. Valid: {list(CITIES)}")
+async def get_filters(city: str = Query(...)):
+    _require_city(city)
     try:
-        filters = await fetch_available_filters(city)
-        return filters
+        return await fetch_available_filters(city)
     except Exception as e:
         raise HTTPException(502, f"Failed to fetch filters from {city}: {e}")
 
 
-# ── Quest data endpoint ────────────────────────────────────────────────────────
+# ── Quest data ─────────────────────────────────────────────────────────────────
 
 @app.get("/api/quests")
 async def get_quests(
-    city: str = Query(..., description="City code"),
-    reward: str = Query(None, description="Reward preset id e.g. coins, luckyegg"),
-    filter: list[str] = Query([], description="Raw filter codes e.g. 8,10,0"),
+    city: str = Query(...),
+    filter: list[str] = Query([], description="Filter codes, e.g. filter=8,10,0&filter=3,500,0"),
+    label: str = Query("Quest", description="Human-readable reward label for GPX titles"),
 ):
-    if city not in CITIES:
-        raise HTTPException(404, f"Unknown city '{city}'")
-
-    # Resolve filter codes
-    filter_codes = list(filter)
-
-    if reward:
-        if reward not in REWARD_PRESETS:
-            raise HTTPException(400, f"Unknown reward '{reward}'. Valid: {list(REWARD_PRESETS)}")
-        preset_filter = REWARD_PRESETS[reward]["filter"]
-        if preset_filter and preset_filter not in filter_codes:
-            filter_codes.append(preset_filter)
-
-    if not filter_codes:
-        raise HTTPException(400, "Provide at least one filter code or a reward preset.")
+    _require_city(city)
+    _require_filters(filter)
 
     try:
-        data = await fetch_quests(city, filter_codes)
+        data = await fetch_quests(city, list(filter))
     except Exception as e:
         raise HTTPException(502, f"Failed to fetch quests from {city}: {e}")
 
     quests = data.get("quests", [])
 
-    # Group conditions for the UI
     conditions: dict[str, int] = {}
     for q in quests:
         cond = q.get("conditions_string", "Unknown")
@@ -90,39 +76,27 @@ async def get_quests(
 
     return {
         "city": city,
-        "reward": reward,
         "total": len(quests),
         "conditions": conditions,
         "quests": quests,
     }
 
 
-# ── GPX download endpoints ─────────────────────────────────────────────────────
+# ── GPX downloads ──────────────────────────────────────────────────────────────
 
 @app.get("/api/gpx/zip")
 async def download_gpx_zip(
     city: str = Query(...),
-    reward: str = Query(None),
     filter: list[str] = Query([]),
-    top: int = Query(120, ge=10, le=500, description="Max stops per condition"),
+    label: str = Query("Quest"),
+    top: int = Query(120, ge=10, le=500),
 ):
-    """Download a ZIP containing one optimized GPX per condition group."""
-    if city not in CITIES:
-        raise HTTPException(404, f"Unknown city '{city}'")
-
-    filter_codes = list(filter)
-    reward_label = "Quest"
-    if reward and reward in REWARD_PRESETS:
-        reward_label = REWARD_PRESETS[reward]["label"]
-        preset_filter = REWARD_PRESETS[reward]["filter"]
-        if preset_filter and preset_filter not in filter_codes:
-            filter_codes.append(preset_filter)
-
-    if not filter_codes:
-        raise HTTPException(400, "Provide at least one filter or reward.")
+    """ZIP of one optimized GPX per condition group."""
+    _require_city(city)
+    _require_filters(filter)
 
     try:
-        data = await fetch_quests(city, filter_codes)
+        data = await fetch_quests(city, list(filter))
     except Exception as e:
         raise HTTPException(502, str(e))
 
@@ -130,41 +104,31 @@ async def download_gpx_zip(
     if not quests:
         raise HTTPException(404, "No quests found for this filter.")
 
-    zip_bytes = generate_gpx_zip(quests, reward_label, top)
+    zip_bytes = generate_gpx_zip(quests, label, top)
     city_name = CITIES[city]["name"].lower()
+    slug = condition_slug(label)
 
     return StreamingResponse(
         io.BytesIO(zip_bytes),
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{city_name}_{reward or "quests"}.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="{city_name}_{slug}.zip"'},
     )
 
 
 @app.get("/api/gpx/single")
 async def download_single_gpx(
     city: str = Query(...),
-    reward: str = Query(None),
     filter: list[str] = Query([]),
-    condition: str = Query(..., description="Exact condition string to generate route for"),
+    label: str = Query("Quest"),
+    condition: str = Query(...),
     top: int = Query(120, ge=10, le=500),
 ):
-    """Download a single optimized GPX for one specific condition."""
-    if city not in CITIES:
-        raise HTTPException(404, f"Unknown city '{city}'")
-
-    filter_codes = list(filter)
-    reward_label = "Quest"
-    if reward and reward in REWARD_PRESETS:
-        reward_label = REWARD_PRESETS[reward]["label"]
-        preset_filter = REWARD_PRESETS[reward]["filter"]
-        if preset_filter and preset_filter not in filter_codes:
-            filter_codes.append(preset_filter)
-
-    if not filter_codes:
-        raise HTTPException(400, "Provide at least one filter or reward.")
+    """Single optimized GPX for one condition."""
+    _require_city(city)
+    _require_filters(filter)
 
     try:
-        data = await fetch_quests(city, filter_codes)
+        data = await fetch_quests(city, list(filter))
     except Exception as e:
         raise HTTPException(502, str(e))
 
@@ -172,8 +136,7 @@ async def download_single_gpx(
     if not quests:
         raise HTTPException(404, "No quests found.")
 
-    gpx_content = generate_single_gpx(quests, condition, reward_label, top)
-    from gpx import condition_slug
+    gpx_content = generate_single_gpx(quests, condition, label, top)
     fname = f"{CITIES[city]['name'].lower()}_{condition_slug(condition)}.gpx"
 
     return StreamingResponse(
