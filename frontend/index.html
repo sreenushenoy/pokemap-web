@@ -6,30 +6,32 @@
 <title>PokéMap Route Builder</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg:       #0f0f1a;
-    --surface:  #1a1a2e;
-    --card:     #16213e;
-    --border:   #2a2a4a;
-    --accent:   #e63946;
-    --blue:     #457b9d;
-    --text:     #e0e0f0;
-    --muted:    #7a7a9a;
-    --green:    #2dc653;
-    --yellow:   #f4a261;
-    --radius:   8px;
+    --bg:      #0d1117;
+    --surface: #161b22;
+    --card:    #1c2230;
+    --border:  #30363d;
+    --accent:  #e63946;
+    --blue:    #58a6ff;
+    --text:    #e6edf3;
+    --muted:   #8b949e;
+    --green:   #3fb950;
+    --yellow:  #d29922;
+    --purple:  #bc8cff;
+    --radius:  10px;
   }
 
   body {
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     background: var(--bg);
     color: var(--text);
     height: 100dvh;
     display: grid;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: 56px 1fr;
     overflow: hidden;
   }
 
@@ -40,18 +42,33 @@
     padding: 0 16px;
     display: flex;
     align-items: center;
-    gap: 24px;
-    height: 52px;
+    gap: 20px;
+  }
+
+  .logo {
+    font-size: 15px;
+    font-weight: 700;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .logo-icon {
+    width: 26px; height: 26px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
     flex-shrink: 0;
   }
-  .logo { font-weight: 700; font-size: 15px; white-space: nowrap; }
   .logo span { color: var(--accent); }
 
   .city-tabs {
     display: flex;
-    gap: 4px;
+    gap: 3px;
     overflow-x: auto;
     scrollbar-width: none;
+    flex: 1;
   }
   .city-tabs::-webkit-scrollbar { display: none; }
 
@@ -59,34 +76,29 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 4px 12px;
-    border-radius: var(--radius);
+    padding: 5px 14px;
+    border-radius: 8px;
     cursor: pointer;
     border: 1px solid transparent;
     background: none;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 11px;
+    font-family: inherit;
     white-space: nowrap;
     transition: all .15s;
     line-height: 1.3;
+    min-width: 72px;
   }
-  .city-tab .flag { font-size: 18px; }
-  .city-tab .reset { font-size: 10px; margin-top: 1px; }
+  .city-tab .flag { font-size: 20px; line-height: 1; }
+  .city-tab .city-name { font-weight: 500; margin-top: 2px; }
+  .city-tab .reset { font-size: 9px; margin-top: 1px; opacity: .7; }
   .city-tab:hover { background: var(--card); color: var(--text); }
-  .city-tab.active {
-    background: var(--card);
-    border-color: var(--accent);
-    color: var(--text);
-  }
-  .city-tab .reset.soon { color: var(--green); }
-  .city-tab .reset.very-soon { color: var(--yellow); }
+  .city-tab.active { background: var(--card); border-color: var(--accent); color: var(--text); }
+  .city-tab .reset.soon { color: var(--green); opacity: 1; }
+  .city-tab .reset.very-soon { color: var(--yellow); opacity: 1; }
 
-  /* ── Main layout ── */
-  .main {
-    display: grid;
-    grid-template-columns: 320px 1fr;
-    overflow: hidden;
-  }
+  /* ── Layout ── */
+  .main { display: grid; grid-template-columns: 310px 1fr; overflow: hidden; }
 
   /* ── Sidebar ── */
   .sidebar {
@@ -97,68 +109,98 @@
     overflow: hidden;
   }
 
-  .sidebar-section {
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--border);
-  }
+  .sidebar-section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
   .section-title {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: .06em;
+    letter-spacing: .08em;
     color: var(--muted);
-    margin-bottom: 8px;
+    margin-bottom: 9px;
   }
 
-  /* reward group tabs */
-  .group-tabs {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
+  /* ── Reward group tabs ── */
+  .group-tabs { display: flex; gap: 5px; flex-wrap: wrap; }
   .group-tab {
-    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
     border-radius: 20px;
     border: 1px solid var(--border);
     background: var(--card);
     color: var(--muted);
     font-size: 12px;
+    font-family: inherit;
+    font-weight: 500;
     cursor: pointer;
     transition: all .15s;
-    display: flex;
-    align-items: center;
-    gap: 4px;
   }
+  .group-tab .g-icon { font-size: 14px; }
   .group-tab:hover { border-color: var(--blue); color: var(--text); }
-  .group-tab.active { border-color: var(--accent); color: var(--text); background: #2a1520; }
+  .group-tab.active { border-color: var(--accent); color: var(--text); background: #1f1218; }
 
-  /* sub-filter pills */
+  /* ── Sub-filter pills ── */
   .filter-pills {
     display: flex;
     gap: 5px;
     flex-wrap: wrap;
-    margin-top: 8px;
+    margin-top: 9px;
+    max-height: 140px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+    padding-right: 2px;
   }
+
   .filter-pill {
-    padding: 3px 9px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px 3px 5px;
     border-radius: 20px;
     border: 1px solid var(--border);
     background: var(--card);
     color: var(--muted);
     font-size: 11px;
+    font-family: inherit;
     cursor: pointer;
     transition: all .15s;
+    white-space: nowrap;
   }
+  .filter-pill img {
+    width: 22px; height: 22px;
+    object-fit: contain;
+    border-radius: 50%;
+    background: #0d1117;
+    flex-shrink: 0;
+  }
+  .filter-pill .pill-icon { font-size: 14px; line-height: 1; }
   .filter-pill:hover { border-color: var(--blue); color: var(--text); }
-  .filter-pill.active { border-color: var(--blue); color: #a8d8ea; background: #0d2030; }
+  .filter-pill.active { border-color: var(--blue); color: var(--blue); background: #0d1f33; }
+  .filter-pill.pill-all { font-weight: 600; }
+  .filter-pill.pill-all.active { border-color: var(--accent); color: var(--accent); background: #1f1218; }
 
-  /* conditions list */
+  /* ── Conditions ── */
   .conditions-scroll {
     flex: 1;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
   }
+
+  .cond-header {
+    padding: 10px 14px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 1;
+  }
+
   .condition-item {
     padding: 10px 14px;
     border-bottom: 1px solid var(--border);
@@ -169,82 +211,115 @@
     gap: 10px;
   }
   .condition-item:hover { background: var(--card); }
-  .condition-item.active { background: #16213e; border-left: 3px solid var(--accent); }
-  .cond-dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
+  .condition-item.active { background: var(--card); border-left: 3px solid var(--accent); padding-left: 11px; }
+
+  .cond-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .cond-body { flex: 1; min-width: 0; }
+  .cond-name { font-size: 12px; font-weight: 500; line-height: 1.35; }
+  .cond-meta { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
+  .cond-count {
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1px 6px;
   }
-  .cond-info { flex: 1; min-width: 0; }
-  .cond-name { font-size: 12px; line-height: 1.3; }
-  .cond-count { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .cond-dist { font-size: 10px; color: var(--muted); }
+
   .cond-dl {
-    padding: 3px 8px;
-    font-size: 11px;
-    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 6px;
     border: 1px solid var(--border);
     background: none;
     color: var(--muted);
+    font-family: inherit;
     cursor: pointer;
     flex-shrink: 0;
+    transition: all .15s;
   }
-  .cond-dl:hover { border-color: var(--green); color: var(--green); }
+  .cond-dl:hover { border-color: var(--green); color: var(--green); background: #0d1f15; }
 
-  /* bottom actions */
+  /* ── Footer ── */
   .sidebar-footer {
     padding: 10px 14px;
     border-top: 1px solid var(--border);
     display: flex;
+    flex-direction: column;
     gap: 8px;
   }
-  .btn {
-    flex: 1;
-    padding: 8px;
-    border-radius: var(--radius);
-    border: none;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity .15s;
-  }
-  .btn:disabled { opacity: .4; cursor: default; }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover:not(:disabled) { opacity: .85; }
-  .btn-secondary { background: var(--card); border: 1px solid var(--border); color: var(--text); }
-  .btn-secondary:hover:not(:disabled) { border-color: var(--blue); }
 
-  /* stops count badge */
-  .top-control {
+  .top-row {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--muted);
   }
-  .top-control input[type=range] { flex: 1; accent-color: var(--accent); }
-  .top-control span { min-width: 36px; text-align: right; color: var(--text); }
+  .top-row input[type=range] { flex: 1; accent-color: var(--accent); }
+  .top-row .top-val {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 30px;
+    text-align: right;
+  }
+
+  .btn-row { display: flex; gap: 6px; }
+  .btn {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: none;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #c1121f; }
+  .btn-secondary { background: var(--card); border: 1px solid var(--border); color: var(--text); }
+  .btn-secondary:hover:not(:disabled) { border-color: var(--blue); }
+
+  /* ── Total badge ── */
+  .total-badge {
+    margin-left: auto;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .total-badge b { color: var(--text); }
 
   /* ── Map ── */
-  #map {
-    width: 100%;
-    height: 100%;
-    background: #111;
-  }
+  #map { width: 100%; height: 100%; }
 
   /* ── States ── */
   .empty-state {
-    padding: 24px 14px;
+    padding: 28px 16px;
     text-align: center;
     color: var(--muted);
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.7;
   }
+  .empty-state .empty-icon { font-size: 32px; margin-bottom: 8px; }
+
   .loading {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 16px;
+    padding: 18px;
     font-size: 12px;
     color: var(--muted);
   }
@@ -254,77 +329,75 @@
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin .7s linear infinite;
+    flex-shrink: 0;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .total-badge {
+  /* Leaflet popup */
+  .leaflet-popup-content-wrapper {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 2px 8px;
-    font-size: 11px;
-    color: var(--muted);
-    margin-left: auto;
+    border-radius: 10px;
+    color: var(--text);
+    box-shadow: 0 4px 20px rgba(0,0,0,.5);
   }
-  .total-badge b { color: var(--text); }
+  .leaflet-popup-tip { background: var(--card); }
+  .leaflet-popup-content { margin: 10px 14px; font-family: 'Inter', sans-serif; }
+  .popup-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+  .popup-reward { font-size: 12px; color: var(--blue); margin-bottom: 2px; }
+  .popup-cond { font-size: 11px; color: var(--muted); }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">Poké<span>Map</span> Route Builder</div>
+  <div class="logo">
+    <div class="logo-icon">🗺️</div>
+    Poké<span>Map</span> Route Builder
+  </div>
   <div class="city-tabs" id="cityTabs"></div>
 </header>
 
 <div class="main">
   <div class="sidebar">
+
     <div class="sidebar-section" id="filterSection">
-      <div class="empty-state">Select a city above to load today's available quests.</div>
-    </div>
-
-    <div class="conditions-scroll" id="conditionsList">
-    </div>
-
-    <div class="sidebar-footer">
-      <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
-        <div class="top-control">
-          <span style="flex:0 0 auto">Max stops/route:</span>
-          <input type="range" id="topSlider" min="10" max="300" value="120" step="10">
-          <span id="topVal">120</span>
-        </div>
-        <div style="display:flex; gap:6px;">
-          <button class="btn btn-primary" id="btnZip" disabled>⬇ Download All ZIP</button>
-          <button class="btn btn-secondary" id="btnClear" disabled>Clear</button>
-        </div>
+      <div class="empty-state">
+        <div class="empty-icon">🌍</div>
+        Select a city to load today's available quests.
       </div>
     </div>
-  </div>
 
+    <div class="conditions-scroll" id="conditionsList"></div>
+
+    <div class="sidebar-footer">
+      <div class="top-row">
+        <span>Max stops/route</span>
+        <input type="range" id="topSlider" min="10" max="300" value="120" step="10">
+        <span class="top-val" id="topVal">120</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btnZip" disabled>⬇ Download ZIP</button>
+        <button class="btn btn-secondary" id="btnClear" disabled>✕ Clear</button>
+      </div>
+    </div>
+
+  </div>
   <div id="map"></div>
 </div>
 
 <script>
-// When opened as a local file use localhost; when served from Railway use same origin
 const API = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
+const COLORS = ['#e63946','#58a6ff','#3fb950','#d29922','#bc8cff','#f4a261','#48cae4','#84a98c','#ff6b9d','#ffd166'];
 
-// ── State ──────────────────────────────────────────────────────────────────────
 const state = {
-  city: null,
-  cityMeta: [],
-  filters: [],          // normalized filter groups from API
-  activeGroup: null,    // selected group id
-  activeSubFilters: [], // selected filter codes within group
-  quests: [],
-  conditions: {},       // {condName: count}
-  activeCondition: null,
-  markers: [],
-  map: null,
-  layerGroups: {},      // condName → L.LayerGroup
+  city: null, cityMeta: [],
+  filters: [], activeGroup: null, activeSubFilters: [],
+  quests: [], conditions: {}, activeCondition: null,
+  map: null, layerGroups: {},
 };
 
-const COLORS = ['#e63946','#457b9d','#2dc653','#f4a261','#a8dadc','#e9c46a','#f28482','#84a98c','#c77dff','#48cae4'];
-
-// ── Init ───────────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   initMap();
   await loadCities();
@@ -334,8 +407,7 @@ async function init() {
 function initMap() {
   state.map = L.map('map', { zoomControl: true }).setView([1.35, 103.82], 12);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    maxZoom: 19,
+    attribution: '© OpenStreetMap © CARTO', maxZoom: 19,
   }).addTo(state.map);
 }
 
@@ -350,91 +422,76 @@ function renderCityTabs() {
   const el = document.getElementById('cityTabs');
   el.innerHTML = '';
   for (const c of state.cityMeta) {
-    const tab = document.createElement('button');
-    tab.className = 'city-tab' + (state.city === c.id ? ' active' : '');
-    tab.dataset.id = c.id;
-    tab.innerHTML = `
+    const btn = document.createElement('button');
+    btn.className = 'city-tab' + (state.city === c.id ? ' active' : '');
+    btn.dataset.id = c.id;
+    btn.innerHTML = `
       <span class="flag">${c.flag}</span>
-      <span>${c.name}</span>
+      <span class="city-name">${c.name}</span>
       <span class="reset" id="reset-${c.id}">--:--</span>
     `;
-    tab.addEventListener('click', () => selectCity(c.id));
-    el.appendChild(tab);
+    btn.addEventListener('click', () => selectCity(c.id));
+    el.appendChild(btn);
   }
 }
 
-async function selectCity(cityId) {
-  if (state.city === cityId) return;
-  state.city = cityId;
-  state.activeGroup = null;
-  state.activeSubFilters = [];
-  state.quests = [];
-  state.conditions = {};
-  state.activeCondition = null;
+const CITY_CENTERS = {
+  sg: [1.35, 103.82], syd: [-33.87, 151.21],
+  lon: [51.51, -0.13], nyc: [40.71, -74.01], van: [49.28, -123.12],
+};
 
-  document.querySelectorAll('.city-tab').forEach(t =>
-    t.classList.toggle('active', t.dataset.id === cityId)
-  );
-
+async function selectCity(id) {
+  if (state.city === id) return;
+  state.city = id;
+  state.activeGroup = null; state.activeSubFilters = [];
+  state.quests = []; state.conditions = {}; state.activeCondition = null;
+  document.querySelectorAll('.city-tab').forEach(t => t.classList.toggle('active', t.dataset.id === id));
   clearMap();
-  showFilterLoading();
-  await loadFilters(cityId);
   renderConditions();
+  showFilterLoading();
+  await loadFilters(id);
   updateButtons();
-
-  // pan map to city
-  const centers = {
-    sg:  [1.35, 103.82],
-    syd: [-33.87, 151.21],
-    lon: [51.51, -0.13],
-    nyc: [40.71, -74.01],
-    van: [49.28, -123.12],
-  };
-  if (centers[cityId]) state.map.setView(centers[cityId], 12);
+  if (CITY_CENTERS[id]) state.map.setView(CITY_CENTERS[id], 12);
 }
 
 // ── Filters ────────────────────────────────────────────────────────────────────
 function showFilterLoading() {
-  document.getElementById('filterSection').innerHTML = `
-    <div class="loading"><div class="spinner"></div> Loading today's quests…</div>
-  `;
+  document.getElementById('filterSection').innerHTML =
+    '<div class="loading"><div class="spinner"></div> Loading today\'s rewards…</div>';
 }
 
-async function loadFilters(cityId) {
+async function loadFilters(city) {
   try {
-    const res = await fetch(`${API}/api/filters?city=${cityId}`);
+    const res = await fetch(`${API}/api/filters?city=${city}`);
     state.filters = await res.json();
     renderFilterSection();
-  } catch (e) {
+  } catch(e) {
     document.getElementById('filterSection').innerHTML =
-      `<div class="empty-state">Failed to load filters.<br>${e.message}</div>`;
+      `<div class="empty-state"><div class="empty-icon">⚠️</div>${e.message}</div>`;
   }
 }
 
 function renderFilterSection() {
   const sec = document.getElementById('filterSection');
   if (!state.filters.length) {
-    sec.innerHTML = '<div class="empty-state">No quests available for this city today.</div>';
+    sec.innerHTML = '<div class="empty-state"><div class="empty-icon">😴</div>No quests found for this city today.</div>';
     return;
   }
-
   sec.innerHTML = `
-    <div style="display:flex;align-items:center;margin-bottom:8px;">
+    <div style="display:flex;align-items:center;margin-bottom:9px;">
       <div class="section-title" style="margin:0">Reward Type</div>
       <div class="total-badge" id="totalBadge" style="display:none"><b id="totalNum">0</b> stops</div>
     </div>
     <div class="group-tabs" id="groupTabs"></div>
     <div class="filter-pills" id="filterPills"></div>
   `;
-
-  const groupTabs = document.getElementById('groupTabs');
   for (const g of state.filters) {
     const btn = document.createElement('button');
     btn.className = 'group-tab';
     btn.dataset.group = g.group;
-    btn.textContent = `${g.icon} ${g.label}`;
+    btn.innerHTML = `<span class="g-icon">${g.icon}</span>${g.label}`;
     btn.addEventListener('click', () => selectGroup(g.group));
-    groupTabs.appendChild(btn);
+    document.getElementById('groupTabs').appendChild(btn);
   }
 }
 
@@ -442,35 +499,21 @@ async function selectGroup(groupId) {
   if (state.activeGroup === groupId) return;
   state.activeGroup = groupId;
   state.activeCondition = null;
+  document.querySelectorAll('.group-tab').forEach(b => b.classList.toggle('active', b.dataset.group === groupId));
 
-  // Update group tab styles
-  document.querySelectorAll('.group-tab').forEach(b =>
-    b.classList.toggle('active', b.dataset.group === groupId)
-  );
-
-  // Build sub-filter pills
   const group = state.filters.find(g => g.group === groupId);
   const pillsEl = document.getElementById('filterPills');
   pillsEl.innerHTML = '';
-
-  // For encounters (many Pokémon) show an "All" toggle + individual pills
-  const allCodes = group.options.map(o => o.code);
-  state.activeSubFilters = [...allCodes]; // default: select all
+  state.activeSubFilters = group.options.map(o => o.code);
 
   if (group.options.length > 1) {
-    const allPill = document.createElement('button');
-    allPill.className = 'filter-pill active';
-    allPill.dataset.code = '__all__';
-    allPill.textContent = 'All';
-    allPill.addEventListener('click', () => toggleAllPills(group));
-    pillsEl.appendChild(allPill);
+    const all = makePill('__all__', null, 'All', true, true);
+    all.addEventListener('click', () => toggleAllPills(group));
+    pillsEl.appendChild(all);
   }
 
   for (const opt of group.options) {
-    const pill = document.createElement('button');
-    pill.className = 'filter-pill active';
-    pill.dataset.code = opt.code;
-    pill.textContent = opt.label;
+    const pill = makePill(opt.code, opt.image || null, opt.label, true, false);
     pill.addEventListener('click', () => togglePill(opt.code, group));
     pillsEl.appendChild(pill);
   }
@@ -478,116 +521,113 @@ async function selectGroup(groupId) {
   await fetchAndRender();
 }
 
-function toggleAllPills(group) {
-  const pills = document.querySelectorAll('.filter-pill:not([data-code="__all__"])');
-  const allCodes = group.options.map(o => o.code);
-  const allActive = state.activeSubFilters.length === allCodes.length;
+function makePill(code, image, label, active, isAll) {
+  const pill = document.createElement('button');
+  pill.className = 'filter-pill' + (active ? ' active' : '') + (isAll ? ' pill-all' : '');
+  pill.dataset.code = code;
 
+  let iconHtml = '';
+  if (image) {
+    const spriteUrl = getSpriteUrl(image);
+    if (spriteUrl) {
+      iconHtml = `<img src="${spriteUrl}" alt="" onerror="this.style.display='none'">`;
+    }
+  }
+
+  pill.innerHTML = `${iconHtml}<span class="pill-text">${escHtml(label)}</span>`;
+  return pill;
+}
+
+function getSpriteUrl(image) {
+  if (!image) return null;
+  if (image.startsWith('quest_pokemon_')) {
+    const id = image.replace('quest_pokemon_', '').split('-')[0];
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+  }
+  return null;
+}
+
+function toggleAllPills(group) {
+  const pills = document.querySelectorAll('.filter-pill:not(.pill-all)');
+  const allActive = state.activeSubFilters.length === group.options.length;
+  const allPill = document.querySelector('.filter-pill.pill-all');
   if (allActive) {
     state.activeSubFilters = [];
     pills.forEach(p => p.classList.remove('active'));
-    document.querySelector('.filter-pill[data-code="__all__"]').classList.remove('active');
+    allPill.classList.remove('active');
   } else {
-    state.activeSubFilters = [...allCodes];
+    state.activeSubFilters = group.options.map(o => o.code);
     pills.forEach(p => p.classList.add('active'));
-    document.querySelector('.filter-pill[data-code="__all__"]').classList.add('active');
+    allPill.classList.add('active');
   }
   fetchAndRender();
 }
 
 function togglePill(code, group) {
   const idx = state.activeSubFilters.indexOf(code);
-  if (idx === -1) {
-    state.activeSubFilters.push(code);
-  } else {
-    state.activeSubFilters.splice(idx, 1);
-  }
+  if (idx === -1) state.activeSubFilters.push(code);
+  else state.activeSubFilters.splice(idx, 1);
   document.querySelector(`.filter-pill[data-code="${CSS.escape(code)}"]`)
     ?.classList.toggle('active', idx === -1);
-
-  // Sync "All" pill
-  const allCodes = group.options.map(o => o.code);
-  const allPill = document.querySelector('.filter-pill[data-code="__all__"]');
-  if (allPill) allPill.classList.toggle('active', state.activeSubFilters.length === allCodes.length);
-
+  const allPill = document.querySelector('.filter-pill.pill-all');
+  if (allPill) allPill.classList.toggle('active', state.activeSubFilters.length === group.options.length);
   fetchAndRender();
 }
 
-// ── Quest fetch & render ───────────────────────────────────────────────────────
+// ── Quest fetch ────────────────────────────────────────────────────────────────
 async function fetchAndRender() {
-  if (!state.activeSubFilters.length) {
-    clearMap();
-    renderConditions();
-    return;
-  }
+  if (!state.activeSubFilters.length) { clearMap(); renderConditions(); return; }
 
-  showConditionsLoading();
+  document.getElementById('conditionsList').innerHTML =
+    '<div class="loading"><div class="spinner"></div> Fetching quests…</div>';
   clearMap();
 
   const params = new URLSearchParams({ city: state.city });
   for (const code of state.activeSubFilters) params.append('filter', code);
-
-  // Build a human-readable label from active group
   const group = state.filters.find(g => g.group === state.activeGroup);
-  const label = group ? group.label : 'Quest';
-  params.set('label', label);
+  params.set('label', group ? group.label : 'Quest');
 
   try {
     const res = await fetch(`${API}/api/quests?${params}`);
     const data = await res.json();
     state.quests = data.quests || [];
     state.conditions = data.conditions || {};
-
     const badge = document.getElementById('totalBadge');
-    const num = document.getElementById('totalNum');
-    if (badge && num) {
-      badge.style.display = '';
-      num.textContent = data.total;
-    }
-
+    if (badge) { badge.style.display = ''; document.getElementById('totalNum').textContent = data.total; }
     renderConditions();
     plotMarkers();
     updateButtons();
     fitMapToMarkers();
-  } catch (e) {
+  } catch(e) {
     document.getElementById('conditionsList').innerHTML =
-      `<div class="empty-state">Error: ${e.message}</div>`;
+      `<div class="empty-state"><div class="empty-icon">⚠️</div>${e.message}</div>`;
   }
 }
 
-// ── Map rendering ──────────────────────────────────────────────────────────────
+// ── Map ────────────────────────────────────────────────────────────────────────
 function plotMarkers() {
   clearMap();
   const condNames = Object.keys(state.conditions);
-
   for (let ci = 0; ci < condNames.length; ci++) {
     const cond = condNames[ci];
     const color = COLORS[ci % COLORS.length];
     const lg = L.layerGroup().addTo(state.map);
     state.layerGroups[cond] = { layer: lg, color };
 
-    const quests = state.quests.filter(q => q.conditions_string === cond);
-    for (const q of quests) {
-      const m = L.circleMarker([parseFloat(q.lat), parseFloat(q.lng)], {
-        radius: 6,
-        fillColor: color,
-        color: '#fff',
-        weight: 1,
-        fillOpacity: 0.85,
+    for (const q of state.quests.filter(q => q.conditions_string === cond)) {
+      L.circleMarker([parseFloat(q.lat), parseFloat(q.lng)], {
+        radius: 7, fillColor: color, color: '#fff', weight: 1.5, fillOpacity: 0.9,
       }).bindPopup(`
-        <b>${escHtml(q.name || '')}</b><br>
-        <small>${escHtml(q.rewards_string || '')}</small><br>
-        <small style="color:#aaa">${escHtml(cond)}</small>
-      `);
-      lg.addLayer(m);
+        <div class="popup-name">${escHtml(q.name || '')}</div>
+        <div class="popup-reward">${escHtml(q.rewards_string || '')}</div>
+        <div class="popup-cond">${escHtml(cond)}</div>
+      `).addTo(lg);
     }
   }
 }
 
 function clearMap() {
-  for (const k in state.layerGroups) {
-    state.map.removeLayer(state.layerGroups[k].layer);
-  }
+  for (const k in state.layerGroups) state.map.removeLayer(state.layerGroups[k].layer);
   state.layerGroups = {};
 }
 
@@ -597,164 +637,116 @@ function fitMapToMarkers() {
 }
 
 // ── Conditions list ────────────────────────────────────────────────────────────
-function showConditionsLoading() {
-  document.getElementById('conditionsList').innerHTML =
-    '<div class="loading"><div class="spinner"></div> Fetching quests…</div>';
-}
-
 function renderConditions() {
   const el = document.getElementById('conditionsList');
   const conds = Object.entries(state.conditions);
-
   if (!conds.length) {
-    el.innerHTML = '<div class="empty-state">No quests found.<br>Try a different filter or city.</div>';
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div>No quests found.<br>Try a different filter or city.</div>';
     return;
   }
 
-  const condNames = Object.keys(state.conditions);
-  el.innerHTML = `<div class="sidebar-section" style="padding-bottom:4px">
-    <div class="section-title">Quest Conditions (${conds.length})</div>
-  </div>`;
+  el.innerHTML = '';
+  const hdr = document.createElement('div');
+  hdr.className = 'cond-header';
+  hdr.innerHTML = `
+    <span class="section-title" style="margin:0">${conds.length} Quest Condition${conds.length > 1 ? 's' : ''}</span>
+  `;
+  el.appendChild(hdr);
 
-  for (let ci = 0; ci < conds.length; ci++) {
-    const [cond, count] = conds[ci];
+  conds.forEach(([cond, count], ci) => {
     const color = COLORS[ci % COLORS.length];
+    const quests = state.quests.filter(q => q.conditions_string === cond);
+
     const item = document.createElement('div');
     item.className = 'condition-item' + (state.activeCondition === cond ? ' active' : '');
     item.dataset.cond = cond;
     item.innerHTML = `
       <div class="cond-dot" style="background:${color}"></div>
-      <div class="cond-info">
+      <div class="cond-body">
         <div class="cond-name">${escHtml(cond)}</div>
-        <div class="cond-count">${count} stops</div>
+        <div class="cond-meta">
+          <span class="cond-count">${count} stops</span>
+        </div>
       </div>
-      <button class="cond-dl" data-cond="${escAttr(cond)}" title="Download GPX for this condition">GPX</button>
+      <button class="cond-dl" data-cond="${escAttr(cond)}">GPX</button>
     `;
-    item.querySelector('.cond-info').addEventListener('click', () => selectCondition(cond));
-    item.querySelector('.cond-dl').addEventListener('click', (e) => {
-      e.stopPropagation();
-      downloadSingleGpx(cond);
-    });
+    item.querySelector('.cond-body').addEventListener('click', () => selectCondition(cond));
+    item.querySelector('.cond-dl').addEventListener('click', e => { e.stopPropagation(); downloadSingleGpx(cond); });
     el.appendChild(item);
-  }
+  });
 }
 
 function selectCondition(cond) {
   state.activeCondition = state.activeCondition === cond ? null : cond;
-
-  document.querySelectorAll('.condition-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.cond === state.activeCondition);
-  });
-
-  // Show/hide layer groups
+  document.querySelectorAll('.condition-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.cond === state.activeCondition));
   for (const [c, { layer }] of Object.entries(state.layerGroups)) {
-    if (state.activeCondition === null || c === state.activeCondition) {
-      state.map.addLayer(layer);
-    } else {
-      state.map.removeLayer(layer);
-    }
+    (state.activeCondition === null || c === state.activeCondition)
+      ? state.map.addLayer(layer) : state.map.removeLayer(layer);
   }
-
-  // Fit map to selected condition
   if (state.activeCondition) {
-    const pts = state.quests
-      .filter(q => q.conditions_string === state.activeCondition)
+    const pts = state.quests.filter(q => q.conditions_string === state.activeCondition)
       .map(q => [parseFloat(q.lat), parseFloat(q.lng)]);
     if (pts.length) state.map.fitBounds(L.latLngBounds(pts), { padding: [30, 30] });
   }
 }
 
 // ── Downloads ──────────────────────────────────────────────────────────────────
-function buildDownloadParams() {
-  const params = new URLSearchParams({ city: state.city });
-  for (const code of state.activeSubFilters) params.append('filter', code);
-  const group = state.filters.find(g => g.group === state.activeGroup);
-  params.set('label', group ? group.label : 'Quest');
-  params.set('top', document.getElementById('topSlider').value);
-  return params;
+function buildParams() {
+  const p = new URLSearchParams({ city: state.city });
+  for (const code of state.activeSubFilters) p.append('filter', code);
+  const g = state.filters.find(g => g.group === state.activeGroup);
+  p.set('label', g ? g.label : 'Quest');
+  p.set('top', document.getElementById('topSlider').value);
+  return p;
 }
-
-function downloadZip() {
-  if (!state.activeSubFilters.length) return;
-  const url = `${API}/api/gpx/zip?${buildDownloadParams()}`;
-  triggerDownload(url);
-}
-
+function downloadZip() { triggerDownload(`${API}/api/gpx/zip?${buildParams()}`); }
 function downloadSingleGpx(cond) {
-  if (!state.activeSubFilters.length) return;
-  const params = buildDownloadParams();
-  params.set('condition', cond);
-  triggerDownload(`${API}/api/gpx/single?${params}`);
+  const p = buildParams(); p.set('condition', cond);
+  triggerDownload(`${API}/api/gpx/single?${p}`);
 }
+function triggerDownload(url) { Object.assign(document.createElement('a'), { href: url }).click(); }
 
-function triggerDownload(url) {
-  const a = document.createElement('a');
-  a.href = url;
-  a.click();
-}
-
-// ── Clocks & quest reset countdowns ───────────────────────────────────────────
-function startClocks() {
-  updateClocks();
-  setInterval(updateClocks, 30000);
-}
-
+// ── Clocks ─────────────────────────────────────────────────────────────────────
+function startClocks() { updateClocks(); setInterval(updateClocks, 60000); }
 function updateClocks() {
   for (const c of state.cityMeta) {
     const el = document.getElementById(`reset-${c.id}`);
     if (!el) continue;
-
-    const now = new Date();
-    const localStr = now.toLocaleString('en-US', { timeZone: c.tz });
-    const local = new Date(localStr);
-
-    // Midnight tonight in that city
-    const midnight = new Date(localStr);
-    midnight.setHours(24, 0, 0, 0);
-    const diffMs = midnight - local;
-    const h = Math.floor(diffMs / 3600000);
-    const m = Math.floor((diffMs % 3600000) / 60000);
-
-    el.textContent = `reset ${h}h ${m}m`;
-    el.className = 'reset' + (h < 1 ? ' very-soon' : h < 3 ? ' soon' : '');
+    try {
+      const now = new Date();
+      const local = new Date(now.toLocaleString('en-US', { timeZone: c.tz }));
+      const midnight = new Date(local); midnight.setHours(24, 0, 0, 0);
+      const diff = midnight - local;
+      const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000);
+      el.textContent = `${h}h ${m}m`;
+      el.className = 'reset' + (h < 1 ? ' very-soon' : h < 3 ? ' soon' : '');
+    } catch { el.textContent = ''; }
   }
 }
 
 // ── Controls ───────────────────────────────────────────────────────────────────
 function updateButtons() {
-  const hasData = state.quests.length > 0;
-  document.getElementById('btnZip').disabled = !hasData;
-  document.getElementById('btnClear').disabled = !hasData;
+  const has = state.quests.length > 0;
+  document.getElementById('btnZip').disabled = !has;
+  document.getElementById('btnClear').disabled = !has;
 }
-
 document.getElementById('topSlider').addEventListener('input', function() {
   document.getElementById('topVal').textContent = this.value;
 });
-
 document.getElementById('btnZip').addEventListener('click', downloadZip);
-
 document.getElementById('btnClear').addEventListener('click', () => {
-  state.activeGroup = null;
-  state.activeSubFilters = [];
-  state.quests = [];
-  state.conditions = {};
-  state.activeCondition = null;
-  clearMap();
-  renderConditions();
-  updateButtons();
+  state.activeGroup = null; state.activeSubFilters = [];
+  state.quests = []; state.conditions = {}; state.activeCondition = null;
+  clearMap(); renderConditions(); updateButtons();
   document.querySelectorAll('.group-tab').forEach(b => b.classList.remove('active'));
-  document.getElementById('filterPills').innerHTML = '';
-  const badge = document.getElementById('totalBadge');
-  if (badge) badge.style.display = 'none';
+  const fp = document.getElementById('filterPills'); if (fp) fp.innerHTML = '';
+  const badge = document.getElementById('totalBadge'); if (badge) badge.style.display = 'none';
 });
 
 // ── Utils ──────────────────────────────────────────────────────────────────────
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function escAttr(s) {
-  return String(s).replace(/"/g,'&quot;');
-}
+const escHtml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const escAttr = s => String(s).replace(/"/g,'&quot;');
 
 init();
 </script>

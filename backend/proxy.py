@@ -51,13 +51,12 @@ async def fetch_quests(city: str, filter_codes: list[str]) -> dict:
         return r.json()
 
 
-async def _learn_labels(city: str, filter_codes: list[str]) -> dict[str, str]:
+async def _learn_labels(city: str, filter_codes: list[str]) -> dict[str, dict]:
     """
-    Fetch real quest data for all filter codes and extract rewards_string labels.
-    Batches in groups of 50 to keep URLs reasonable.
-    Returns {filter_code: rewards_string}.
+    Fetch real quest data for all filter codes.
+    Returns {filter_code: {label, image}}.
     """
-    labels: dict[str, str] = {}
+    results: dict[str, dict] = {}
     for i in range(0, len(filter_codes), 50):
         batch = filter_codes[i : i + 50]
         try:
@@ -69,9 +68,12 @@ async def _learn_labels(city: str, filter_codes: list[str]) -> dict[str, str]:
             amt = q.get("rewards_amounts", "")
             rid = q.get("rewards_ids", "")
             code = f"{t},{amt},{rid}"
-            if code and q.get("rewards_string") and code not in labels:
-                labels[code] = q["rewards_string"]
-    return labels
+            if code and q.get("rewards_string") and code not in results:
+                results[code] = {
+                    "label": q["rewards_string"],
+                    "image": q.get("image", ""),
+                }
+    return results
 
 
 async def fetch_available_filters(city: str) -> list:
@@ -108,11 +110,12 @@ async def fetch_available_filters(city: str) -> list:
     all_codes = [opt["code"] for g in normalized for opt in g["options"]]
     real_labels = await _learn_labels(city, all_codes)
 
-    # 4. Override with real labels wherever we learned them
+    # 4. Override with real labels and images wherever we learned them
     for g in normalized:
         for opt in g["options"]:
             if opt["code"] in real_labels:
-                opt["label"] = real_labels[opt["code"]]
+                opt["label"] = real_labels[opt["code"]]["label"]
+                opt["image"] = real_labels[opt["code"]]["image"]
 
     # 5. Cache until next midnight in this city's timezone
     expires = _next_cache_expiry(cfg["tz"])
