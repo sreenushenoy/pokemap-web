@@ -5,7 +5,7 @@ ITEM_NAMES = {
     "301": "Lucky Egg", "401": "Ordinary Incense", "501": "Lure Module",
     "701": "Razz Berry", "705": "Nanab Berry", "706": "Pinap Berry",
     "708": "Golden Razz Berry", "709": "Silver Pinap Berry",
-    "1301": "Premium Raid Pass", "1404": "Star Piece",
+    "1301": "Rare Candy", "1404": "Star Piece",
     "1101": "Sun Stone", "1102": "King Rock", "1103": "Metal Coat",
     "1104": "Dragon Scale", "1105": "Up-Grade", "1106": "Sinnoh Stone",
     "1107": "Unova Stone",
