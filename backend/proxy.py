@@ -18,13 +18,19 @@ def _headers(base_url: str) -> dict:
     }
 
 
-def _next_midnight_utc(tz_name: str) -> float:
-    """UTC timestamp of next midnight in the given city timezone."""
+def _next_cache_expiry(tz_name: str) -> float:
+    """
+    Cache refreshes at two points each day in the city's local time:
+      - 11:00 AM  (events start at 10am; 1hr buffer for pokemap to update)
+      - 00:00 AM  (daily quest reset at midnight)
+    Returns the UTC timestamp of whichever comes next.
+    """
     tz = zoneinfo.ZoneInfo(tz_name)
-    tomorrow_midnight = (datetime.now(tz) + timedelta(days=1)).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
-    return tomorrow_midnight.timestamp()
+    now = datetime.now(tz)
+    eleven_am = now.replace(hour=11, minute=0, second=0, microsecond=0)
+    midnight   = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    # If 11am hasn't passed yet today, expire there; otherwise wait for midnight
+    return eleven_am.timestamp() if now < eleven_am else midnight.timestamp()
 
 
 async def fetch_quests(city: str, filter_codes: list[str]) -> dict:
@@ -104,7 +110,7 @@ async def fetch_available_filters(city: str) -> list:
                 opt["label"] = real_labels[opt["code"]]
 
     # 5. Cache until next midnight in this city's timezone
-    expires = _next_midnight_utc(cfg["tz"])
+    expires = _next_cache_expiry(cfg["tz"])
     _filter_cache[city] = (normalized, expires)
 
     return normalized
