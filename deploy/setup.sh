@@ -23,7 +23,7 @@ else
 fi
 
 echo "==> Installing Python dependencies..."
-pip3 install -r "$APP_DIR/requirements.txt"
+pip3 install -r "$APP_DIR/backend/requirements.txt"
 
 echo "==> Installing systemd service..."
 sudo cp "$APP_DIR/deploy/pokemap.service" /etc/systemd/system/${SERVICE_NAME}.service
