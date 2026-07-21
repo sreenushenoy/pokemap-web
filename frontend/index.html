@@ -304,7 +304,8 @@
 </div>
 
 <script>
-const API = 'http://localhost:8000';
+// When opened as a local file use localhost; when served from Railway use same origin
+const API = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
 
 // ── State ──────────────────────────────────────────────────────────────────────
 const state = {
