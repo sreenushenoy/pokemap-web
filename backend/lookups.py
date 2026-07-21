@@ -3,8 +3,8 @@
 ITEM_NAMES = {
     "1": "Poke Ball", "2": "Great Ball", "3": "Ultra Ball",
     "301": "Lucky Egg", "401": "Ordinary Incense", "501": "Lure Module",
-    "701": "Razz Berry", "705": "Nanab Berry", "706": "Pinap Berry",
-    "708": "Golden Razz Berry", "709": "Silver Pinap Berry",
+    "701": "Razz Berry", "703": "Nanab Berry", "705": "Pinap Berry",
+    "704": "Poffin", "706": "Golden Razz Berry", "707": "Silver Pinap Berry",
     "1301": "Rare Candy", "1404": "Star Piece",
     "1101": "Sun Stone", "1102": "King Rock", "1103": "Metal Coat",
     "1104": "Dragon Scale", "1105": "Up-Grade", "1106": "Sinnoh Stone",
