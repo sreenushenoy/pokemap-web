@@ -137,6 +137,7 @@
     transition: all .15s;
   }
   .group-tab .g-icon { font-size: 14px; }
+  .group-tab .g-img { width: 20px; height: 20px; object-fit: contain; flex-shrink: 0; image-rendering: -webkit-optimize-contrast; }
   .group-tab:hover { border-color: var(--blue); color: var(--text); }
   .group-tab.active { border-color: var(--accent); color: var(--text); background: #1f1218; }
 
@@ -390,6 +391,26 @@
 const API = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
 const COLORS = ['#e63946','#58a6ff','#3fb950','#d29922','#bc8cff','#f4a261','#48cae4','#84a98c','#ff6b9d','#ffd166'];
 
+const GROUP_ICONS = {
+  coins:      'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-coin.png',
+  stardust:   'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/stardust.png',
+  items:      'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png',
+  encounters: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png',
+  mega:       'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/sun-stone.png',
+};
+const GROUP_EMOJI_FALLBACK = {
+  coins: '💰', stardust: '⭐', items: '🎒', encounters: '🔴', mega: '💜',
+};
+
+const POGO_ITEM_SLUGS = {
+  '1': 'poke-ball', '2': 'great-ball', '3': 'ultra-ball',
+  '301': 'lucky-egg', '401': 'incense',
+  '701': 'razz-berry', '706': 'pinap-berry',
+  '1101': 'sun-stone', '1102': 'kings-rock', '1103': 'metal-coat',
+  '1104': 'dragon-scale', '1105': 'up-grade', '1301': 'rare-candy',
+  '1404': 'star-piece',
+};
+
 const state = {
   city: null, cityMeta: [],
   filters: [], activeGroup: null, activeSubFilters: [],
@@ -489,7 +510,12 @@ function renderFilterSection() {
     const btn = document.createElement('button');
     btn.className = 'group-tab';
     btn.dataset.group = g.group;
-    btn.innerHTML = `<span class="g-icon">${g.icon}</span>${g.label}`;
+    const iconUrl = GROUP_ICONS[g.group];
+    const fallback = GROUP_EMOJI_FALLBACK[g.group] || '';
+    const iconHtml = iconUrl
+      ? `<img class="g-img" src="${iconUrl}" alt="" onerror="this.style.display='none'">`
+      : `<span class="g-icon">${fallback}</span>`;
+    btn.innerHTML = `${iconHtml}${escHtml(g.label)}`;
     btn.addEventListener('click', () => selectGroup(g.group));
     document.getElementById('groupTabs').appendChild(btn);
   }
@@ -543,6 +569,11 @@ function getSpriteUrl(image) {
   if (image.startsWith('quest_pokemon_')) {
     const id = image.replace('quest_pokemon_', '').split('-')[0];
     return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+  }
+  if (image.startsWith('quest_item_')) {
+    const id = image.replace('quest_item_', '').split('-')[0];
+    const slug = POGO_ITEM_SLUGS[id];
+    if (slug) return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/${slug}.png`;
   }
   return null;
 }
