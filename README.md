@@ -46,29 +46,3 @@ This tool is a **personal quality-of-life project** built for the Pokémon GO co
 No login, no accounts, no data collection.
 
 ---
-
-## Running locally
-
-### Backend
-
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-
-Open `http://localhost:8000` — the backend serves the frontend too.
-
-### Frontend only (dev)
-
-Open `frontend/index.html` directly in a browser. It auto-detects `file://` and points API calls to `localhost:8000`.
-
-## Tech stack
-
-| Layer | Tech |
-|-------|------|
-| Backend | Python / FastAPI |
-| Proxy | httpx (async) |
-| Route optimizer | Nearest-neighbor TSP heuristic (haversine distances) |
-| Frontend | Vanilla JS + Leaflet.js |
-| Map tiles | CartoDB Dark Matter |
