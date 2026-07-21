@@ -305,6 +305,23 @@
   /* ── Map ── */
   #map { width: 100%; height: 100%; }
 
+  /* ── Visitor badge ── */
+  .visit-badge {
+    position: fixed;
+    bottom: 28px;
+    right: 10px;
+    background: rgba(22, 27, 34, 0.82);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 3px 9px;
+    font-size: 10px;
+    color: var(--muted);
+    backdrop-filter: blur(6px);
+    z-index: 1000;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
   /* ── States ── */
   .empty-state {
     padding: 28px 16px;
@@ -358,6 +375,8 @@
   </div>
   <div class="city-tabs" id="cityTabs"></div>
 </header>
+
+<div class="visit-badge" id="visitBadge" style="display:none">👁 <span id="visitCount">0</span> visitors</div>
 
 <div class="main">
   <div class="sidebar">
@@ -426,6 +445,16 @@ async function init() {
   initMap();
   await loadCities();
   startClocks();
+  trackVisit();
+}
+
+async function trackVisit() {
+  try {
+    const res = await fetch(`${API}/api/visit`, { method: 'POST' });
+    const { count } = await res.json();
+    document.getElementById('visitCount').textContent = count.toLocaleString();
+    document.getElementById('visitBadge').style.display = '';
+  } catch {}
 }
 
 function initMap() {

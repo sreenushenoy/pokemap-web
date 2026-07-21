@@ -12,6 +12,7 @@ import io, os
 from cities import CITIES
 from proxy import fetch_quests, fetch_available_filters
 from gpx import generate_gpx_zip, generate_single_gpx, condition_slug
+from visits import record_visit, get_count
 
 app = FastAPI(title="PokéMap Route Builder API")
 
@@ -31,6 +32,17 @@ def _require_city(city: str):
 def _require_filters(filter_codes: list[str]):
     if not filter_codes:
         raise HTTPException(400, "Provide at least one filter[] code.")
+
+
+# ── Visitor counter ────────────────────────────────────────────────────────────
+
+@app.post("/api/visit")
+def log_visit():
+    return {"count": record_visit()}
+
+@app.get("/api/visits")
+def visit_count():
+    return {"count": get_count()}
 
 
 # ── Config endpoints ───────────────────────────────────────────────────────────
