@@ -9,7 +9,7 @@ echo "==> Pulling latest code..."
 git -C "$APP_DIR" pull
 
 echo "==> Updating dependencies..."
-pip3 install -r "$APP_DIR/requirements.txt"
+pip3 install -r "$APP_DIR/backend/requirements.txt"
 
 echo "==> Restarting service..."
 sudo systemctl restart pokemap
