@@ -63,16 +63,6 @@ Open `http://localhost:8000` — the backend serves the frontend too.
 
 Open `frontend/index.html` directly in a browser. It auto-detects `file://` and points API calls to `localhost:8000`.
 
-## Self-hosting (Oracle Cloud Free Tier)
-
-See `deploy/setup.sh` for a full setup script targeting Ubuntu 20.04 + nginx + systemd.  
-TL;DR: Python 3.8+, FastAPI, uvicorn behind nginx, free AMD Micro VM, DuckDNS for a free hostname, certbot for HTTPS.
-
-```bash
-bash deploy/setup.sh   # first-time setup
-bash deploy/update.sh  # pull latest and restart
-```
-
 ## Tech stack
 
 | Layer | Tech |
@@ -82,4 +72,3 @@ bash deploy/update.sh  # pull latest and restart
 | Route optimizer | Nearest-neighbor TSP heuristic (haversine distances) |
 | Frontend | Vanilla JS + Leaflet.js |
 | Map tiles | CartoDB Dark Matter |
-| Hosting | Oracle Cloud Free Tier (AMD Micro) |
