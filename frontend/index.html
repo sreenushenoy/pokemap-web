@@ -677,14 +677,16 @@ async function selectGroup(groupId) {
   const group = state.filters.find(g => g.group === groupId);
   const pillsEl = document.getElementById('filterPills');
   pillsEl.innerHTML = '';
-  state.activeSubFilters = group.options.map(o => o.code);
+  state.activeSubFilters = [];
+  clearMap();
+  renderConditions();
+  updateButtons();
 
   for (const opt of group.options) {
-    const pill = makePill(opt.code, opt.image || null, opt.label, true, false);
+    const pill = makePill(opt.code, opt.image || null, opt.label, false, false);
     pill.addEventListener('click', () => togglePill(opt.code, group));
     pillsEl.appendChild(pill);
   }
-  await fetchAndRender();
 }
 
 function makePill(code, image, label, active, isAll) {
