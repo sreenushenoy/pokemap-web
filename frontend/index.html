@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PokéMap Route Builder</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -42,9 +45,8 @@
     padding: 0 16px;
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 12px;
   }
-
   .logo {
     font-size: 15px;
     font-weight: 700;
@@ -52,6 +54,7 @@
     display: flex;
     align-items: center;
     gap: 7px;
+    flex-shrink: 0;
   }
   .logo-icon {
     width: 26px; height: 26px;
@@ -59,7 +62,6 @@
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     font-size: 14px;
-    flex-shrink: 0;
   }
   .logo span { color: var(--accent); }
 
@@ -76,7 +78,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 5px 14px;
+    padding: 5px 10px;
     border-radius: 8px;
     cursor: pointer;
     border: 1px solid transparent;
@@ -87,9 +89,10 @@
     white-space: nowrap;
     transition: all .15s;
     line-height: 1.3;
-    min-width: 72px;
+    min-width: 60px;
+    -webkit-tap-highlight-color: transparent;
   }
-  .city-tab .flag { font-size: 20px; line-height: 1; }
+  .city-tab .flag { font-size: 18px; line-height: 1; }
   .city-tab .city-name { font-weight: 500; margin-top: 2px; }
   .city-tab .reset { font-size: 9px; margin-top: 1px; opacity: .7; }
   .city-tab:hover { background: var(--card); color: var(--text); }
@@ -98,7 +101,7 @@
   .city-tab .reset.very-soon { color: var(--yellow); opacity: 1; }
 
   /* ── Layout ── */
-  .main { display: grid; grid-template-columns: 310px 1fr; overflow: hidden; }
+  .main { display: grid; grid-template-columns: 310px 1fr; overflow: hidden; height: 100%; }
 
   /* ── Sidebar ── */
   .sidebar {
@@ -108,6 +111,7 @@
     flex-direction: column;
     overflow: hidden;
   }
+  .drawer-handle { display: none; }
 
   .sidebar-section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
   .section-title {
@@ -119,13 +123,13 @@
     margin-bottom: 9px;
   }
 
-  /* ── Reward group tabs ── */
+  /* ── Group tabs ── */
   .group-tabs { display: flex; gap: 5px; flex-wrap: wrap; }
   .group-tab {
     display: flex;
     align-items: center;
     gap: 5px;
-    padding: 5px 11px;
+    padding: 6px 11px;
     border-radius: 20px;
     border: 1px solid var(--border);
     background: var(--card);
@@ -135,13 +139,13 @@
     font-weight: 500;
     cursor: pointer;
     transition: all .15s;
+    -webkit-tap-highlight-color: transparent;
   }
-  .group-tab .g-icon { font-size: 14px; }
   .group-tab .g-img { width: 20px; height: 20px; object-fit: contain; flex-shrink: 0; image-rendering: -webkit-optimize-contrast; }
   .group-tab:hover { border-color: var(--blue); color: var(--text); }
   .group-tab.active { border-color: var(--accent); color: var(--text); background: #1f1218; }
 
-  /* ── Sub-filter pills ── */
+  /* ── Filter pills ── */
   .filter-pills {
     display: flex;
     gap: 5px;
@@ -151,14 +155,12 @@
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
-    padding-right: 2px;
   }
-
   .filter-pill {
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 9px 3px 5px;
+    padding: 5px 10px 5px 6px;
     border-radius: 20px;
     border: 1px solid var(--border);
     background: var(--card);
@@ -168,103 +170,72 @@
     cursor: pointer;
     transition: all .15s;
     white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
   }
-  .filter-pill img {
-    width: 22px; height: 22px;
-    object-fit: contain;
-    border-radius: 50%;
-    background: #0d1117;
-    flex-shrink: 0;
-  }
-  .filter-pill .pill-icon { font-size: 14px; line-height: 1; }
+  .filter-pill img { width: 22px; height: 22px; object-fit: contain; border-radius: 50%; background: #0d1117; flex-shrink: 0; }
   .filter-pill:hover { border-color: var(--blue); color: var(--text); }
   .filter-pill.active { border-color: var(--blue); color: var(--blue); background: #0d1f33; }
   .filter-pill.pill-all { font-weight: 600; }
   .filter-pill.pill-all.active { border-color: var(--accent); color: var(--accent); background: #1f1218; }
 
   /* ── Conditions ── */
-  .conditions-scroll {
-    flex: 1;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-  }
+  .conditions-scroll { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 
   .cond-header {
-    padding: 10px 14px 6px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    padding: 8px 14px;
     border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
     background: var(--surface);
     z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
   }
+  .cond-header-row { display: flex; align-items: center; justify-content: space-between; }
+
+  .cond-search {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 6px 10px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .cond-search:focus { border-color: var(--blue); }
+  .cond-search::placeholder { color: var(--muted); }
 
   .condition-item {
     padding: 10px 14px;
     border-bottom: 1px solid var(--border);
-    cursor: pointer;
     transition: background .1s;
     display: flex;
     align-items: center;
     gap: 10px;
+    min-height: 52px;
   }
   .condition-item:hover { background: var(--card); }
   .condition-item.active { background: var(--card); border-left: 3px solid var(--accent); padding-left: 11px; }
-
   .cond-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .cond-body { flex: 1; min-width: 0; }
+  .cond-body { flex: 1; min-width: 0; cursor: pointer; }
   .cond-name { font-size: 12px; font-weight: 500; line-height: 1.35; }
   .cond-meta { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
-  .cond-count {
-    font-size: 10px;
-    color: var(--muted);
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 1px 6px;
-  }
-  .cond-dist { font-size: 10px; color: var(--muted); }
-
-  /* condition checkbox */
-  .cond-check {
-    width: 16px; height: 16px;
-    flex-shrink: 0;
-    accent-color: var(--accent);
-    cursor: pointer;
-  }
+  .cond-count { font-size: 10px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1px 6px; }
+  .cond-check { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
 
   /* ── Footer ── */
-  .sidebar-footer {
-    padding: 10px 14px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .top-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 11px;
-    color: var(--muted);
-  }
+  .sidebar-footer { padding: 10px 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+  .top-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
   .top-row input[type=range] { flex: 1; accent-color: var(--accent); }
-  .top-row .top-val {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text);
-    min-width: 30px;
-    text-align: right;
-  }
-
+  .top-row .top-val { font-size: 12px; font-weight: 600; color: var(--text); min-width: 30px; text-align: right; }
   .btn-row { display: flex; gap: 6px; }
   .btn {
     flex: 1;
-    padding: 8px 10px;
+    padding: 10px;
     border-radius: 8px;
     border: none;
     font-size: 12px;
@@ -276,6 +247,8 @@
     align-items: center;
     justify-content: center;
     gap: 5px;
+    min-height: 42px;
+    -webkit-tap-highlight-color: transparent;
   }
   .btn:disabled { opacity: .35; cursor: default; }
   .btn-primary { background: var(--accent); color: #fff; }
@@ -283,16 +256,7 @@
   .btn-secondary { background: var(--card); border: 1px solid var(--border); color: var(--text); }
   .btn-secondary:hover:not(:disabled) { border-color: var(--blue); }
 
-  /* ── Total badge ── */
-  .total-badge {
-    margin-left: auto;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 2px 8px;
-    font-size: 11px;
-    color: var(--muted);
-  }
+  .total-badge { margin-left: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 2px 8px; font-size: 11px; color: var(--muted); }
   .total-badge b { color: var(--text); }
 
   /* ── Map ── */
@@ -301,62 +265,78 @@
   /* ── Visitor badge ── */
   .visit-badge {
     position: fixed;
-    bottom: 28px;
-    right: 10px;
-    background: rgba(22, 27, 34, 0.82);
+    bottom: 28px; right: 10px;
+    background: rgba(22,27,34,0.82);
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 3px 9px;
     font-size: 10px;
     color: var(--muted);
     backdrop-filter: blur(6px);
-    z-index: 1000;
+    z-index: 400;
     pointer-events: none;
     white-space: nowrap;
   }
 
   /* ── States ── */
-  .empty-state {
-    padding: 28px 16px;
-    text-align: center;
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.7;
-  }
+  .empty-state { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.7; }
   .empty-state .empty-icon { font-size: 32px; margin-bottom: 8px; }
-
-  .loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 18px;
-    font-size: 12px;
-    color: var(--muted);
-  }
-  .spinner {
-    width: 14px; height: 14px;
-    border: 2px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin .7s linear infinite;
-    flex-shrink: 0;
-  }
+  .loading { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 18px; font-size: 12px; color: var(--muted); }
+  .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* Leaflet popup */
-  .leaflet-popup-content-wrapper {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    color: var(--text);
-    box-shadow: 0 4px 20px rgba(0,0,0,.5);
-  }
+  .leaflet-popup-content-wrapper { background: var(--card); border: 1px solid var(--border); border-radius: 10px; color: var(--text); box-shadow: 0 4px 20px rgba(0,0,0,.5); }
   .leaflet-popup-tip { background: var(--card); }
   .leaflet-popup-content { margin: 10px 14px; font-family: 'Inter', sans-serif; }
   .popup-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
   .popup-reward { font-size: 12px; color: var(--blue); margin-bottom: 2px; }
   .popup-cond { font-size: 11px; color: var(--muted); }
+
+  /* ── Mobile ── */
+  @media (max-width: 767px) {
+    .logo span:not(.logo-icon) { display: none; }
+
+    .city-tab { min-width: 52px; padding: 4px 8px; }
+    .city-tab .city-name { font-size: 10px; }
+
+    .main { grid-template-columns: 1fr; position: relative; }
+
+    .sidebar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      width: 100%;
+      height: 72vh;
+      border-right: none;
+      border-top: 1px solid var(--border);
+      border-radius: 18px 18px 0 0;
+      transform: translateY(calc(100% - 58px));
+      transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+      z-index: 500;
+      box-shadow: 0 -6px 30px rgba(0,0,0,0.5);
+    }
+    .sidebar.drawer-open { transform: translateY(0); }
+
+    .drawer-handle {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 16px 6px;
+      cursor: pointer;
+      flex-shrink: 0;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      min-height: 58px;
+      justify-content: center;
+    }
+    .drawer-pill { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 7px; }
+    .drawer-summary { font-size: 11px; color: var(--muted); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100vw - 40px); text-align: center; }
+
+    .visit-badge { bottom: 70px; }
+    .cond-check { width: 20px; height: 20px; }
+    .condition-item { min-height: 56px; }
+    .filter-pills { max-height: 120px; }
+  }
 </style>
 </head>
 <body>
@@ -364,7 +344,7 @@
 <header>
   <div class="logo">
     <div class="logo-icon">🗺️</div>
-    Poké<span>Map</span> Route Builder
+    Poké<span>Map</span><span> Route Builder</span>
   </div>
   <div class="city-tabs" id="cityTabs"></div>
 </header>
@@ -372,7 +352,12 @@
 <div class="visit-badge" id="visitBadge" style="display:none">👁 <span id="visitCount">0</span> visitors</div>
 
 <div class="main">
-  <div class="sidebar">
+  <div class="sidebar" id="sidebar">
+
+    <div class="drawer-handle" id="drawerHandle">
+      <div class="drawer-pill"></div>
+      <div class="drawer-summary" id="drawerSummary">Select a city to start</div>
+    </div>
 
     <div class="sidebar-section" id="filterSection">
       <div class="empty-state">
@@ -390,7 +375,7 @@
         <span class="top-val" id="topVal">120</span>
       </div>
       <div class="btn-row">
-        <button class="btn btn-primary" id="btnDownload" disabled>⬇ Download GPX <span id="dlCount"></span></button>
+        <button class="btn btn-primary" id="btnDownload" disabled>⬇ Download GPX</button>
         <button class="btn btn-secondary" id="btnClear" disabled>✕ Clear</button>
       </div>
     </div>
@@ -410,20 +395,14 @@ const GROUP_ICONS = {
   encounters: '/sprites/poke_ball.png',
   mega:       '/sprites/mega_energy.png',
 };
-const GROUP_EMOJI_FALLBACK = {
-  coins: '💰', stardust: '⭐', items: '🎒', encounters: '🔴', mega: '💜',
-};
+const GROUP_EMOJI_FALLBACK = { coins:'💰', stardust:'⭐', items:'🎒', encounters:'🔴', mega:'💜' };
 
 const POGO_ITEM_SPRITES = {
-  '1':    '/sprites/poke_ball.png',
-  '3':    '/sprites/ultra_ball.png',
-  '301':  '/sprites/lucky_egg.png',
-  '501':  '/sprites/lure_module.png',
-  '704':  '/sprites/poffin.png',
-  '706':  '/sprites/golden_razz.png',
-  '707':  '/sprites/silver_pinap.png',
-  '1301': '/sprites/rare_candy.png',
-  '1404': '/sprites/star_piece.png',
+  '1':'/sprites/poke_ball.png','3':'/sprites/ultra_ball.png',
+  '301':'/sprites/lucky_egg.png','501':'/sprites/lure_module.png',
+  '704':'/sprites/poffin.png','706':'/sprites/golden_razz.png',
+  '707':'/sprites/silver_pinap.png','1301':'/sprites/rare_candy.png',
+  '1404':'/sprites/star_piece.png',
 };
 
 const state = {
@@ -431,7 +410,7 @@ const state = {
   filters: [], activeGroup: null, activeSubFilters: [],
   quests: [], conditions: {}, activeCondition: null,
   checkedConditions: new Set(),
-  map: null, layerGroups: {},
+  map: null, layerGroups: {}, routeLayer: null,
 };
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -440,12 +419,12 @@ async function init() {
   await loadCities();
   startClocks();
   trackVisit();
+  initDrawer();
   setInterval(autoRefresh, 2 * 60 * 60 * 1000);
 }
 
 async function autoRefresh() {
   if (!state.city) return;
-  // Re-fetch filters (clears server cache if expired) then re-fetch quests
   await loadFilters(state.city);
   if (state.activeSubFilters.length) await fetchAndRender();
 }
@@ -459,6 +438,26 @@ async function trackVisit() {
   } catch {}
 }
 
+// ── Mobile drawer ─────────────────────────────────────────────────────────────
+function initDrawer() {
+  const handle = document.getElementById('drawerHandle');
+  const sidebar = document.getElementById('sidebar');
+  handle.addEventListener('click', () => sidebar.classList.toggle('drawer-open'));
+  document.getElementById('map').addEventListener('click', () => sidebar.classList.remove('drawer-open'));
+}
+
+function updateDrawerSummary() {
+  const el = document.getElementById('drawerSummary');
+  if (!state.city) { el.textContent = 'Select a city to start'; return; }
+  if (!state.quests.length) { el.textContent = 'Select a reward type above'; return; }
+  const checked = state.checkedConditions.size;
+  const stops = state.quests.filter(q => state.checkedConditions.has(q.conditions_string)).length;
+  el.textContent = checked
+    ? `${checked} condition${checked > 1 ? 's' : ''} · ${stops} stops selected`
+    : `${state.quests.length} stops · check conditions to select`;
+}
+
+// ── Map ───────────────────────────────────────────────────────────────────────
 function initMap() {
   state.map = L.map('map', { zoomControl: true }).setView([1.35, 103.82], 12);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -466,7 +465,58 @@ function initMap() {
   }).addTo(state.map);
 }
 
-// ── Cities ─────────────────────────────────────────────────────────────────────
+function plotMarkers() {
+  clearMap();
+  const condNames = Object.keys(state.conditions);
+  for (let ci = 0; ci < condNames.length; ci++) {
+    const cond = condNames[ci];
+    const color = COLORS[ci % COLORS.length];
+    const clusterGroup = L.markerClusterGroup({
+      maxClusterRadius: 50,
+      iconCreateFunction: cluster => {
+        const n = cluster.getChildCount();
+        return L.divIcon({
+          html: `<div style="background:${color};opacity:0.88;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:Inter,sans-serif;border:2px solid rgba(255,255,255,0.3);box-shadow:0 2px 6px rgba(0,0,0,0.4)">${n}</div>`,
+          className: '',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+      },
+    }).addTo(state.map);
+    state.layerGroups[cond] = { layer: clusterGroup, color };
+
+    for (const q of state.quests.filter(q => q.conditions_string === cond)) {
+      L.circleMarker([parseFloat(q.lat), parseFloat(q.lng)], {
+        radius: 7, fillColor: color, color: '#fff', weight: 1.5, fillOpacity: 0.9,
+      }).bindPopup(`
+        <div class="popup-name">${escHtml(q.name || '')}</div>
+        <div class="popup-reward">${escHtml(q.rewards_string || '')}</div>
+        <div class="popup-cond">${escHtml(cond)}</div>
+      `).addTo(clusterGroup);
+    }
+  }
+}
+
+function clearMap() {
+  if (state.routeLayer) { state.map.removeLayer(state.routeLayer); state.routeLayer = null; }
+  for (const k in state.layerGroups) state.map.removeLayer(state.layerGroups[k].layer);
+  state.layerGroups = {};
+}
+
+function fitMapToMarkers() {
+  const pts = state.quests.map(q => [parseFloat(q.lat), parseFloat(q.lng)]);
+  if (pts.length) state.map.fitBounds(L.latLngBounds(pts), { padding: [30, 30] });
+}
+
+function updateRoutePreview(pts) {
+  if (state.routeLayer) { state.map.removeLayer(state.routeLayer); state.routeLayer = null; }
+  if (!pts || pts.length < 2) return;
+  state.routeLayer = L.polyline(pts.map(p => [p.lat, p.lng]), {
+    color: '#e63946', weight: 2.5, opacity: 0.6, dashArray: '6 8',
+  }).addTo(state.map);
+}
+
+// ── Cities ────────────────────────────────────────────────────────────────────
 async function loadCities() {
   const res = await fetch(`${API}/api/cities`);
   state.cityMeta = await res.json();
@@ -480,19 +530,14 @@ function renderCityTabs() {
     const btn = document.createElement('button');
     btn.className = 'city-tab' + (state.city === c.id ? ' active' : '');
     btn.dataset.id = c.id;
-    btn.innerHTML = `
-      <span class="flag">${c.flag}</span>
-      <span class="city-name">${c.name}</span>
-      <span class="reset" id="reset-${c.id}">--:--</span>
-    `;
+    btn.innerHTML = `<span class="flag">${c.flag}</span><span class="city-name">${c.name}</span><span class="reset" id="reset-${c.id}">--:--</span>`;
     btn.addEventListener('click', () => selectCity(c.id));
     el.appendChild(btn);
   }
 }
 
 const CITY_CENTERS = {
-  sg: [1.35, 103.82], syd: [-33.87, 151.21],
-  lon: [51.51, -0.13], nyc: [40.71, -74.01], van: [49.28, -123.12],
+  sg:[1.35,103.82], syd:[-33.87,151.21], lon:[51.51,-0.13], nyc:[40.71,-74.01], van:[49.28,-123.12],
 };
 
 async function selectCity(id) {
@@ -500,16 +545,16 @@ async function selectCity(id) {
   state.city = id;
   state.activeGroup = null; state.activeSubFilters = [];
   state.quests = []; state.conditions = {}; state.activeCondition = null;
+  state.checkedConditions = new Set();
   document.querySelectorAll('.city-tab').forEach(t => t.classList.toggle('active', t.dataset.id === id));
-  clearMap();
-  renderConditions();
-  showFilterLoading();
+  clearMap(); renderConditions(); showFilterLoading();
   await loadFilters(id);
-  updateButtons();
+  updateButtons(); updateDrawerSummary();
   if (CITY_CENTERS[id]) state.map.setView(CITY_CENTERS[id], 12);
+  if (window.innerWidth <= 767) document.getElementById('sidebar').classList.add('drawer-open');
 }
 
-// ── Filters ────────────────────────────────────────────────────────────────────
+// ── Filters ───────────────────────────────────────────────────────────────────
 function showFilterLoading() {
   document.getElementById('filterSection').innerHTML =
     '<div class="loading"><div class="spinner"></div> Loading today\'s rewards…</div>';
@@ -548,7 +593,7 @@ function renderFilterSection() {
     const fallback = GROUP_EMOJI_FALLBACK[g.group] || '';
     const iconHtml = iconUrl
       ? `<img class="g-img" src="${iconUrl}" alt="" onerror="this.style.display='none'">`
-      : `<span class="g-icon">${fallback}</span>`;
+      : `<span>${fallback}</span>`;
     btn.innerHTML = `${iconHtml}${escHtml(g.label)}`;
     btn.addEventListener('click', () => selectGroup(g.group));
     document.getElementById('groupTabs').appendChild(btn);
@@ -559,8 +604,8 @@ async function selectGroup(groupId) {
   if (state.activeGroup === groupId) return;
   state.activeGroup = groupId;
   state.activeCondition = null;
+  state.checkedConditions = new Set();
   document.querySelectorAll('.group-tab').forEach(b => b.classList.toggle('active', b.dataset.group === groupId));
-
   const group = state.filters.find(g => g.group === groupId);
   const pillsEl = document.getElementById('filterPills');
   pillsEl.innerHTML = '';
@@ -571,13 +616,11 @@ async function selectGroup(groupId) {
     all.addEventListener('click', () => toggleAllPills(group));
     pillsEl.appendChild(all);
   }
-
   for (const opt of group.options) {
     const pill = makePill(opt.code, opt.image || null, opt.label, true, false);
     pill.addEventListener('click', () => togglePill(opt.code, group));
     pillsEl.appendChild(pill);
   }
-
   await fetchAndRender();
 }
 
@@ -585,16 +628,12 @@ function makePill(code, image, label, active, isAll) {
   const pill = document.createElement('button');
   pill.className = 'filter-pill' + (active ? ' active' : '') + (isAll ? ' pill-all' : '');
   pill.dataset.code = code;
-
   let iconHtml = '';
   if (image) {
-    const spriteUrl = getSpriteUrl(image);
-    if (spriteUrl) {
-      iconHtml = `<img src="${spriteUrl}" alt="" onerror="this.style.display='none'">`;
-    }
+    const url = getSpriteUrl(image);
+    if (url) iconHtml = `<img src="${url}" alt="" onerror="this.style.display='none'">`;
   }
-
-  pill.innerHTML = `${iconHtml}<span class="pill-text">${escHtml(label)}</span>`;
+  pill.innerHTML = `${iconHtml}<span>${escHtml(label)}</span>`;
   return pill;
 }
 
@@ -644,10 +683,9 @@ function togglePill(code, group) {
   fetchAndRender();
 }
 
-// ── Quest fetch ────────────────────────────────────────────────────────────────
+// ── Quest fetch ───────────────────────────────────────────────────────────────
 async function fetchAndRender() {
   if (!state.activeSubFilters.length) { clearMap(); renderConditions(); return; }
-
   document.getElementById('conditionsList').innerHTML =
     '<div class="loading"><div class="spinner"></div> Fetching quests…</div>';
   clearMap();
@@ -660,72 +698,37 @@ async function fetchAndRender() {
   try {
     const res = await fetch(`${API}/api/quests?${params}`);
     const data = await res.json();
-    // Client-side filter: the pokemap API sometimes returns all quests
-    // of a type without respecting the specific ID/amount in the filter code.
-    const parsedFilters = state.activeSubFilters.map(code => {
-      const [t, amt, id] = code.split(',');
-      return { t, amt, id };
-    });
+
+    // Client-side filter: pokemap APIs sometimes ignore the id/amount in the filter code
+    const parsed = state.activeSubFilters.map(code => { const [t,amt,id]=code.split(','); return {t,amt,id}; });
     state.quests = (data.quests || []).filter(q =>
-      parsedFilters.some(f => {
+      parsed.some(f => {
         if (String(q.rewards_types) !== f.t) return false;
         if (f.id && f.id !== '0' && String(q.rewards_ids) !== f.id) return false;
         if (f.amt && f.amt !== '0' && String(q.rewards_amounts) !== f.amt) return false;
         return true;
       })
     );
-    // Rebuild conditions from the client-filtered quest list
     state.conditions = {};
     for (const q of state.quests) {
-      const cond = q.conditions_string || 'Unknown';
-      state.conditions[cond] = (state.conditions[cond] || 0) + 1;
+      const c = q.conditions_string || 'Unknown';
+      state.conditions[c] = (state.conditions[c] || 0) + 1;
     }
-    state.checkedConditions = new Set();
+
     const badge = document.getElementById('totalBadge');
-    if (badge) { badge.style.display = ''; document.getElementById('totalNum').textContent = state.quests.length; }
+    if (badge) { badge.style.display=''; document.getElementById('totalNum').textContent = state.quests.length; }
     renderConditions();
     plotMarkers();
     updateButtons();
     fitMapToMarkers();
+    updateDrawerSummary();
   } catch(e) {
     document.getElementById('conditionsList').innerHTML =
       `<div class="empty-state"><div class="empty-icon">⚠️</div>${e.message}</div>`;
   }
 }
 
-// ── Map ────────────────────────────────────────────────────────────────────────
-function plotMarkers() {
-  clearMap();
-  const condNames = Object.keys(state.conditions);
-  for (let ci = 0; ci < condNames.length; ci++) {
-    const cond = condNames[ci];
-    const color = COLORS[ci % COLORS.length];
-    const lg = L.layerGroup().addTo(state.map);
-    state.layerGroups[cond] = { layer: lg, color };
-
-    for (const q of state.quests.filter(q => q.conditions_string === cond)) {
-      L.circleMarker([parseFloat(q.lat), parseFloat(q.lng)], {
-        radius: 7, fillColor: color, color: '#fff', weight: 1.5, fillOpacity: 0.9,
-      }).bindPopup(`
-        <div class="popup-name">${escHtml(q.name || '')}</div>
-        <div class="popup-reward">${escHtml(q.rewards_string || '')}</div>
-        <div class="popup-cond">${escHtml(cond)}</div>
-      `).addTo(lg);
-    }
-  }
-}
-
-function clearMap() {
-  for (const k in state.layerGroups) state.map.removeLayer(state.layerGroups[k].layer);
-  state.layerGroups = {};
-}
-
-function fitMapToMarkers() {
-  const pts = state.quests.map(q => [parseFloat(q.lat), parseFloat(q.lng)]);
-  if (pts.length) state.map.fitBounds(L.latLngBounds(pts), { padding: [30, 30] });
-}
-
-// ── Conditions list ────────────────────────────────────────────────────────────
+// ── Conditions list ───────────────────────────────────────────────────────────
 function renderConditions() {
   const el = document.getElementById('conditionsList');
   const conds = Object.entries(state.conditions);
@@ -738,9 +741,18 @@ function renderConditions() {
   const hdr = document.createElement('div');
   hdr.className = 'cond-header';
   hdr.innerHTML = `
-    <span class="section-title" style="margin:0">${conds.length} Quest Condition${conds.length > 1 ? 's' : ''}</span>
+    <div class="cond-header-row">
+      <span class="section-title" style="margin:0">${conds.length} Quest Condition${conds.length>1?'s':''}</span>
+    </div>
+    <input type="text" class="cond-search" id="condSearch" placeholder="Search conditions…">
   `;
   el.appendChild(hdr);
+  hdr.querySelector('#condSearch').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    el.querySelectorAll('.condition-item').forEach(item =>
+      item.style.display = (item.dataset.cond||'').toLowerCase().includes(q) ? '' : 'none'
+    );
+  });
 
   conds.forEach(([cond, count], ci) => {
     const color = COLORS[ci % COLORS.length];
@@ -753,9 +765,7 @@ function renderConditions() {
       <div class="cond-dot" style="background:${color}"></div>
       <div class="cond-body">
         <div class="cond-name">${escHtml(cond)}</div>
-        <div class="cond-meta">
-          <span class="cond-count">${count} stops</span>
-        </div>
+        <div class="cond-meta"><span class="cond-count">${count} stops</span></div>
       </div>
     `;
     item.querySelector('.cond-check').addEventListener('change', e => {
@@ -763,6 +773,7 @@ function renderConditions() {
       if (e.target.checked) state.checkedConditions.add(cond);
       else state.checkedConditions.delete(cond);
       updateButtons();
+      updateDrawerSummary();
     });
     item.querySelector('.cond-body').addEventListener('click', () => selectCondition(cond));
     el.appendChild(item);
@@ -784,112 +795,136 @@ function selectCondition(cond) {
   }
 }
 
-// ── Client-side route optimization ────────────────────────────────────────────
+// ── Route optimization (client-side) ─────────────────────────────────────────
 function hvs(lat1, lng1, lat2, lng2) {
-  const R = 6371, r = Math.PI / 180;
-  const dlat = (lat2 - lat1) * r, dlng = (lng2 - lng1) * r;
-  const a = Math.sin(dlat/2)**2 + Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dlng/2)**2;
-  return R * 2 * Math.asin(Math.sqrt(a));
+  const R=6371, r=Math.PI/180;
+  const dlat=(lat2-lat1)*r, dlng=(lng2-lng1)*r;
+  const a=Math.sin(dlat/2)**2+Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dlng/2)**2;
+  return R*2*Math.asin(Math.sqrt(a));
 }
 
 function nearestNeighbor(pts) {
   if (!pts.length) return pts;
-  const rem = pts.map((_, i) => i);
-  const start = rem.reduce((a, b) => pts[a].lat < pts[b].lat ? a : b);
+  const rem = pts.map((_,i)=>i);
+  const start = rem.reduce((a,b)=>pts[a].lat<pts[b].lat?a:b);
   const route = [start];
-  rem.splice(rem.indexOf(start), 1);
+  rem.splice(rem.indexOf(start),1);
   while (rem.length) {
-    const last = route[route.length - 1];
-    const near = rem.reduce((a, b) =>
-      hvs(pts[last].lat, pts[last].lng, pts[a].lat, pts[a].lng) <=
-      hvs(pts[last].lat, pts[last].lng, pts[b].lat, pts[b].lng) ? a : b);
+    const last = route[route.length-1];
+    const near = rem.reduce((a,b)=>
+      hvs(pts[last].lat,pts[last].lng,pts[a].lat,pts[a].lng)<=
+      hvs(pts[last].lat,pts[last].lng,pts[b].lat,pts[b].lng)?a:b);
     route.push(near);
-    rem.splice(rem.indexOf(near), 1);
+    rem.splice(rem.indexOf(near),1);
   }
-  return route.map(i => pts[i]);
+  return route.map(i=>pts[i]);
 }
 
 function trimToCentroid(pts, n) {
-  if (pts.length <= n) return pts;
-  const clat = pts.reduce((s, p) => s + p.lat, 0) / pts.length;
-  const clng = pts.reduce((s, p) => s + p.lng, 0) / pts.length;
-  return [...pts].sort((a, b) => hvs(clat, clng, a.lat, a.lng) - hvs(clat, clng, b.lat, b.lng)).slice(0, n);
+  if (pts.length<=n) return pts;
+  const clat=pts.reduce((s,p)=>s+p.lat,0)/pts.length;
+  const clng=pts.reduce((s,p)=>s+p.lng,0)/pts.length;
+  return [...pts].sort((a,b)=>hvs(clat,clng,a.lat,a.lng)-hvs(clat,clng,b.lat,b.lng)).slice(0,n);
+}
+
+function routeDistance(pts) {
+  let d=0;
+  for (let i=1;i<pts.length;i++) d+=hvs(pts[i-1].lat,pts[i-1].lng,pts[i].lat,pts[i].lng);
+  return d;
+}
+
+function computeRoute() {
+  const top = parseInt(document.getElementById('topSlider').value);
+  let pts = state.quests
+    .filter(q=>state.checkedConditions.has(q.conditions_string))
+    .map(q=>({lat:parseFloat(q.lat),lng:parseFloat(q.lng),name:q.name||'',cond:q.conditions_string||''}));
+  if (!pts.length) return [];
+  return nearestNeighbor(trimToCentroid(pts, top));
 }
 
 function buildGpx(title, waypoints) {
-  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const esc = s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<gpx version="1.1" creator="PokéMap Route Builder" xmlns="http://www.topografix.com/GPX/1/1">',
     `  <metadata><name>${esc(title)}</name></metadata>`,
-    ...waypoints.map(w =>
-      `  <wpt lat="${w.lat}" lon="${w.lng}"><name>${esc(w.name)}</name><desc>${esc(w.cond)}</desc></wpt>`),
+    ...waypoints.map(w=>`  <wpt lat="${w.lat}" lon="${w.lng}"><name>${esc(w.name)}</name><desc>${esc(w.cond)}</desc></wpt>`),
     '</gpx>',
   ].join('\n');
 }
 
 function downloadSelectedGpx() {
-  const top = parseInt(document.getElementById('topSlider').value);
-  const label = state.filters.find(g => g.group === state.activeGroup)?.label || 'Quest';
-  let pts = state.quests
-    .filter(q => state.checkedConditions.has(q.conditions_string))
-    .map(q => ({ lat: parseFloat(q.lat), lng: parseFloat(q.lng), name: q.name || '', cond: q.conditions_string || '' }));
+  const pts = computeRoute();
   if (!pts.length) return;
-  pts = trimToCentroid(pts, top);
-  pts = nearestNeighbor(pts);
+  const label = state.filters.find(g=>g.group===state.activeGroup)?.label || 'Quest';
   const condList = [...state.checkedConditions];
-  const title = condList.length === 1 ? `${label} — ${condList[0]}` : `${label} (${condList.length} conditions, ${pts.length} stops)`;
+  const title = condList.length===1
+    ? `${label} — ${condList[0]}`
+    : `${label} (${condList.length} conditions, ${pts.length} stops)`;
   const slug = label.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,30);
-  const blob = new Blob([buildGpx(title, pts)], { type: 'application/gpx+xml' });
+  const blob = new Blob([buildGpx(title,pts)], { type:'application/gpx+xml' });
   const url = URL.createObjectURL(blob);
-  Object.assign(document.createElement('a'), { href: url, download: `pokemap_${slug}.gpx` }).click();
+  Object.assign(document.createElement('a'),{href:url,download:`pokemap_${slug}.gpx`}).click();
   URL.revokeObjectURL(url);
 }
 
-// ── Clocks ─────────────────────────────────────────────────────────────────────
-function startClocks() { updateClocks(); setInterval(updateClocks, 60000); }
+// ── Controls ──────────────────────────────────────────────────────────────────
+function updateButtons() {
+  const selectedStops = state.quests.filter(q=>state.checkedConditions.has(q.conditions_string)).length;
+  const btnDl = document.getElementById('btnDownload');
+
+  if (selectedStops > 0) {
+    const pts = computeRoute();
+    const km = routeDistance(pts);
+    const dist = km < 1 ? `${Math.round(km*1000)}m` : `${km.toFixed(1)}km`;
+    btnDl.textContent = `⬇ GPX · ${pts.length} stops · ${dist}`;
+    updateRoutePreview(pts);
+  } else {
+    btnDl.textContent = '⬇ Download GPX';
+    updateRoutePreview(null);
+  }
+
+  btnDl.disabled = selectedStops === 0;
+  document.getElementById('btnClear').disabled = state.quests.length === 0;
+}
+
+document.getElementById('topSlider').addEventListener('input', function() {
+  document.getElementById('topVal').textContent = this.value;
+  if (state.checkedConditions.size > 0) updateButtons();
+});
+document.getElementById('btnDownload').addEventListener('click', downloadSelectedGpx);
+document.getElementById('btnClear').addEventListener('click', () => {
+  state.activeGroup=null; state.activeSubFilters=[];
+  state.quests=[]; state.conditions={}; state.activeCondition=null;
+  state.checkedConditions=new Set();
+  clearMap(); renderConditions(); updateButtons();
+  document.querySelectorAll('.group-tab').forEach(b=>b.classList.remove('active'));
+  const fp=document.getElementById('filterPills'); if(fp) fp.innerHTML='';
+  const badge=document.getElementById('totalBadge'); if(badge) badge.style.display='none';
+  updateDrawerSummary();
+});
+
+// ── Clocks ────────────────────────────────────────────────────────────────────
+function startClocks() { updateClocks(); setInterval(updateClocks,60000); }
 function updateClocks() {
   for (const c of state.cityMeta) {
     const el = document.getElementById(`reset-${c.id}`);
     if (!el) continue;
     try {
       const now = new Date();
-      const local = new Date(now.toLocaleString('en-US', { timeZone: c.tz }));
-      const midnight = new Date(local); midnight.setHours(24, 0, 0, 0);
-      const diff = midnight - local;
-      const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000);
-      el.textContent = `${h}h ${m}m`;
-      el.className = 'reset' + (h < 1 ? ' very-soon' : h < 3 ? ' soon' : '');
-    } catch { el.textContent = ''; }
+      const local = new Date(now.toLocaleString('en-US',{timeZone:c.tz}));
+      const midnight = new Date(local); midnight.setHours(24,0,0,0);
+      const diff = midnight-local;
+      const h=Math.floor(diff/3600000), m=Math.floor((diff%3600000)/60000);
+      el.textContent=`${h}h ${m}m`;
+      el.className='reset'+(h<1?' very-soon':h<3?' soon':'');
+    } catch { el.textContent=''; }
   }
 }
 
-// ── Controls ───────────────────────────────────────────────────────────────────
-function updateButtons() {
-  const has = state.quests.length > 0;
-  const selectedStops = state.quests.filter(q => state.checkedConditions.has(q.conditions_string)).length;
-  const btnDl = document.getElementById('btnDownload');
-  btnDl.disabled = selectedStops === 0;
-  document.getElementById('dlCount').textContent = selectedStops ? `(${selectedStops})` : '';
-  document.getElementById('btnClear').disabled = !has;
-}
-document.getElementById('topSlider').addEventListener('input', function() {
-  document.getElementById('topVal').textContent = this.value;
-});
-document.getElementById('btnDownload').addEventListener('click', downloadSelectedGpx);
-document.getElementById('btnClear').addEventListener('click', () => {
-  state.activeGroup = null; state.activeSubFilters = [];
-  state.quests = []; state.conditions = {}; state.activeCondition = null;
-  state.checkedConditions = new Set();
-  clearMap(); renderConditions(); updateButtons();
-  document.querySelectorAll('.group-tab').forEach(b => b.classList.remove('active'));
-  const fp = document.getElementById('filterPills'); if (fp) fp.innerHTML = '';
-  const badge = document.getElementById('totalBadge'); if (badge) badge.style.display = 'none';
-});
-
-// ── Utils ──────────────────────────────────────────────────────────────────────
-const escHtml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const escAttr = s => String(s).replace(/"/g,'&quot;');
+// ── Utils ─────────────────────────────────────────────────────────────────────
+const escHtml = s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const escAttr = s=>String(s).replace(/"/g,'&quot;');
 
 init();
 </script>
