@@ -662,7 +662,7 @@ async function fetchAndRender() {
     const data = await res.json();
     state.quests = data.quests || [];
     state.conditions = data.conditions || {};
-    state.checkedConditions = new Set(Object.keys(state.conditions));
+    state.checkedConditions = new Set();
     const badge = document.getElementById('totalBadge');
     if (badge) { badge.style.display = ''; document.getElementById('totalNum').textContent = data.total; }
     renderConditions();
