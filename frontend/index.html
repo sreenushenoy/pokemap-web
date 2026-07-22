@@ -262,6 +262,25 @@
   /* ── Map ── */
   #map { width: 100%; height: 100%; }
 
+  /* ── Area filter control ── */
+  .area-filter-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    color: var(--muted);
+    white-space: nowrap;
+    transition: all .15s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .area-filter-btn:hover { border-color: var(--blue); color: var(--text); }
+  .area-filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
   /* ── Visitor badge ── */
   .visit-badge {
     position: fixed;
@@ -410,6 +429,7 @@ const state = {
   filters: [], activeGroup: null, activeSubFilters: [],
   quests: [], conditions: {}, activeCondition: null,
   checkedConditions: new Set(),
+  areaFilter: false,
   map: null, layerGroups: {}, routeLayer: null,
 };
 
@@ -463,6 +483,54 @@ function initMap() {
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '© OpenStreetMap © CARTO', maxZoom: 19,
   }).addTo(state.map);
+
+  // Area filter Leaflet control (top-right)
+  const AreaCtrl = L.Control.extend({
+    onAdd() {
+      const btn = L.DomUtil.create('button', 'area-filter-btn');
+      btn.id = 'btnAreaFilter';
+      btn.textContent = '⬚ This area only';
+      L.DomEvent.disableClickPropagation(btn);
+      btn.addEventListener('click', toggleAreaFilter);
+      return btn;
+    },
+  });
+  new AreaCtrl({ position: 'topright' }).addTo(state.map);
+
+  state.map.on('moveend', () => {
+    if (state.areaFilter && state.quests.length) applyDisplay();
+  });
+}
+
+// Returns quests filtered to the current map viewport when area filter is on
+function getDisplayQuests() {
+  if (!state.areaFilter || !state.quests.length) return state.quests;
+  const bounds = state.map.getBounds();
+  return state.quests.filter(q => bounds.contains([parseFloat(q.lat), parseFloat(q.lng)]));
+}
+
+// Re-derive conditions + re-render sidebar from the current display set
+function applyDisplay() {
+  const dq = getDisplayQuests();
+  const conds = {};
+  for (const q of dq) {
+    const c = q.conditions_string || 'Unknown';
+    conds[c] = (conds[c] || 0) + 1;
+  }
+  state.conditions = conds;
+  const badge = document.getElementById('totalBadge');
+  if (badge) { badge.style.display=''; document.getElementById('totalNum').textContent = dq.length; }
+  renderConditions();
+  updateButtons();
+  updateDrawerSummary();
+}
+
+function toggleAreaFilter() {
+  state.areaFilter = !state.areaFilter;
+  const btn = document.getElementById('btnAreaFilter');
+  btn.classList.toggle('active', state.areaFilter);
+  btn.textContent = state.areaFilter ? '⬚ Area: ON' : '⬚ This area only';
+  if (state.quests.length) applyDisplay();
 }
 
 function plotMarkers() {
@@ -545,7 +613,9 @@ async function selectCity(id) {
   state.city = id;
   state.activeGroup = null; state.activeSubFilters = [];
   state.quests = []; state.conditions = {}; state.activeCondition = null;
-  state.checkedConditions = new Set();
+  state.checkedConditions = new Set(); state.areaFilter = false;
+  const aBtn = document.getElementById('btnAreaFilter');
+  if (aBtn) { aBtn.classList.remove('active'); aBtn.textContent = '⬚ This area only'; }
   document.querySelectorAll('.city-tab').forEach(t => t.classList.toggle('active', t.dataset.id === id));
   clearMap(); renderConditions(); showFilterLoading();
   await loadFilters(id);
@@ -835,7 +905,7 @@ function routeDistance(pts) {
 
 function computeRoute() {
   const top = parseInt(document.getElementById('topSlider').value);
-  let pts = state.quests
+  let pts = getDisplayQuests()
     .filter(q=>state.checkedConditions.has(q.conditions_string))
     .map(q=>({lat:parseFloat(q.lat),lng:parseFloat(q.lng),name:q.name||'',cond:q.conditions_string||''}));
   if (!pts.length) return [];
@@ -870,7 +940,7 @@ function downloadSelectedGpx() {
 
 // ── Controls ──────────────────────────────────────────────────────────────────
 function updateButtons() {
-  const selectedStops = state.quests.filter(q=>state.checkedConditions.has(q.conditions_string)).length;
+  const selectedStops = getDisplayQuests().filter(q=>state.checkedConditions.has(q.conditions_string)).length;
   const btnDl = document.getElementById('btnDownload');
 
   if (selectedStops > 0) {
