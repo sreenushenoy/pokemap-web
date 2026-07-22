@@ -660,11 +660,29 @@ async function fetchAndRender() {
   try {
     const res = await fetch(`${API}/api/quests?${params}`);
     const data = await res.json();
-    state.quests = data.quests || [];
-    state.conditions = data.conditions || {};
+    // Client-side filter: the pokemap API sometimes returns all quests
+    // of a type without respecting the specific ID/amount in the filter code.
+    const parsedFilters = state.activeSubFilters.map(code => {
+      const [t, amt, id] = code.split(',');
+      return { t, amt, id };
+    });
+    state.quests = (data.quests || []).filter(q =>
+      parsedFilters.some(f => {
+        if (String(q.rewards_types) !== f.t) return false;
+        if (f.id && f.id !== '0' && String(q.rewards_ids) !== f.id) return false;
+        if (f.amt && f.amt !== '0' && String(q.rewards_amounts) !== f.amt) return false;
+        return true;
+      })
+    );
+    // Rebuild conditions from the client-filtered quest list
+    state.conditions = {};
+    for (const q of state.quests) {
+      const cond = q.conditions_string || 'Unknown';
+      state.conditions[cond] = (state.conditions[cond] || 0) + 1;
+    }
     state.checkedConditions = new Set();
     const badge = document.getElementById('totalBadge');
-    if (badge) { badge.style.display = ''; document.getElementById('totalNum').textContent = data.total; }
+    if (badge) { badge.style.display = ''; document.getElementById('totalNum').textContent = state.quests.length; }
     renderConditions();
     plotMarkers();
     updateButtons();
