@@ -175,8 +175,6 @@
   .filter-pill img { width: 22px; height: 22px; object-fit: contain; border-radius: 50%; background: #0d1117; flex-shrink: 0; }
   .filter-pill:hover { border-color: var(--blue); color: var(--text); }
   .filter-pill.active { border-color: var(--blue); color: var(--blue); background: #0d1f33; }
-  .filter-pill.pill-all { font-weight: 600; }
-  .filter-pill.pill-all.active { border-color: var(--accent); color: var(--accent); background: #1f1218; }
 
   /* ── Conditions ── */
   .conditions-scroll { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
@@ -681,11 +679,6 @@ async function selectGroup(groupId) {
   pillsEl.innerHTML = '';
   state.activeSubFilters = group.options.map(o => o.code);
 
-  if (group.options.length > 1) {
-    const all = makePill('__all__', null, 'All', true, true);
-    all.addEventListener('click', () => toggleAllPills(group));
-    pillsEl.appendChild(all);
-  }
   for (const opt of group.options) {
     const pill = makePill(opt.code, opt.image || null, opt.label, true, false);
     pill.addEventListener('click', () => togglePill(opt.code, group));
@@ -726,30 +719,12 @@ function groupIconUrl(group) {
   return path ? `${API}${path}` : null;
 }
 
-function toggleAllPills(group) {
-  const pills = document.querySelectorAll('.filter-pill:not(.pill-all)');
-  const allActive = state.activeSubFilters.length === group.options.length;
-  const allPill = document.querySelector('.filter-pill.pill-all');
-  if (allActive) {
-    state.activeSubFilters = [];
-    pills.forEach(p => p.classList.remove('active'));
-    allPill.classList.remove('active');
-  } else {
-    state.activeSubFilters = group.options.map(o => o.code);
-    pills.forEach(p => p.classList.add('active'));
-    allPill.classList.add('active');
-  }
-  fetchAndRender();
-}
-
 function togglePill(code, group) {
   const idx = state.activeSubFilters.indexOf(code);
   if (idx === -1) state.activeSubFilters.push(code);
   else state.activeSubFilters.splice(idx, 1);
   document.querySelector(`.filter-pill[data-code="${CSS.escape(code)}"]`)
     ?.classList.toggle('active', idx === -1);
-  const allPill = document.querySelector('.filter-pill.pill-all');
-  if (allPill) allPill.classList.toggle('active', state.activeSubFilters.length === group.options.length);
   fetchAndRender();
 }
 
