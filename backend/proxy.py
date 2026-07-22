@@ -69,8 +69,12 @@ async def _learn_labels(city: str, filter_codes: list[str]) -> dict[str, dict]:
             rid = q.get("rewards_ids", "")
             code = f"{t},{amt},{rid}"
             if code and q.get("rewards_string") and code not in results:
+                label = q["rewards_string"]
+                # Strip leading "1 " prefix — "1 Golden Razz Berry" → "Golden Razz Berry"
+                if label.startswith("1 ") and not label.startswith("1 0"):
+                    label = label[2:]
                 results[code] = {
-                    "label": q["rewards_string"],
+                    "label": label,
                     "image": q.get("image", ""),
                 }
     return results
