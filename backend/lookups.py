@@ -108,21 +108,25 @@ TYPE_META = {
 
 
 def filter_code(type_num: int, id_field: bool, val: str) -> str:
-    base_val = val.split("-")[0]
+    parts = val.split("-")
+    base_val = parts[0]
     if id_field:
-        return f"{type_num},1,{base_val}"
+        amount = parts[1] if len(parts) > 1 else "1"
+        return f"{type_num},{amount},{base_val}"
     return f"{type_num},{base_val},0"
 
 
 def filter_label(meta: dict, val: str) -> str:
-    base_val = val.split("-")[0]
-    suffix = f" ({val.split('-')[1]})" if "-" in val else ""
+    parts = val.split("-")
+    base_val = parts[0]
+    amount = parts[1] if len(parts) > 1 else None
     lookup = meta["lookup"]
     t = meta["type_num"]
     if lookup == "item":
-        return ITEM_NAMES.get(base_val, f"Item #{base_val}")
+        name = ITEM_NAMES.get(base_val, f"Item #{base_val}")
+        return f"{amount}x {name}" if amount and amount != "1" else name
     if lookup == "pokemon":
-        return POKEMON_NAMES.get(base_val, f"Pokemon #{base_val}") + suffix
+        return POKEMON_NAMES.get(base_val, f"Pokemon #{base_val}")
     if lookup == "mega":
         name = MEGA_POKEMON_NAMES.get(base_val) or POKEMON_NAMES.get(base_val, f"Pokemon #{base_val}")
         return f"{name} Mega Energy"
