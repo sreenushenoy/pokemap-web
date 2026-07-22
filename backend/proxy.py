@@ -70,9 +70,13 @@ async def _learn_labels(city: str, filter_codes: list[str]) -> dict[str, dict]:
             code = f"{t},{amt},{rid}"
             if code and q.get("rewards_string") and code not in results:
                 label = q["rewards_string"]
-                # Strip leading "1 " prefix — "1 Golden Razz Berry" → "Golden Razz Berry"
-                if label.startswith("1 ") and not label.startswith("1 0"):
-                    label = label[2:]
+                # For items/mega/encounters, strip the leading count from rewards_string
+                # ("3 Ultra Balls" → "Ultra Balls") so quantity can be formatted separately.
+                # Don't strip for stardust (t=3) or coins (t=8) where the number IS the value.
+                if t in ("2", "7", "12") and amt:
+                    prefix = f"{amt} "
+                    if label.startswith(prefix):
+                        label = label[len(prefix):]
                 results[code] = {
                     "label": label,
                     "image": q.get("image", ""),
@@ -130,12 +134,16 @@ async def fetch_available_filters(city: str) -> list:
                         amt = code.split(",")[1]
                         info = variants[code]
                         label = info["label"]
-                        if amt != "1":
-                            label = f"{amt}x {label}"
+                        if amt not in ("0", "1"):
+                            label = f"{amt}× {label}"
                         new_options.append({"code": code, "label": label, "image": info["image"]})
                 elif variants:
                     code, info = next(iter(variants.items()))
-                    new_options.append({"code": code, "label": info["label"], "image": info["image"]})
+                    amt = code.split(",")[1]
+                    label = info["label"]
+                    if amt not in ("0", "1"):
+                        label = f"{amt}× {label}"
+                    new_options.append({"code": code, "label": label, "image": info["image"]})
                 else:
                     new_options.append(opt)
             g["options"] = sorted(new_options, key=lambda o: o["label"])
