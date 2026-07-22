@@ -24,18 +24,18 @@ def _headers(base_url: str) -> dict:
 
 
 def _next_cache_expiry(tz_name: str) -> float:
-    """
-    Cache refreshes at two points each day in the city's local time:
-      - 11:00 AM  (events start at 10am; 1hr buffer for pokemap to update)
-      - 00:00 AM  (daily quest reset at midnight)
-    Returns the UTC timestamp of whichever comes next.
-    """
     tz = zoneinfo.ZoneInfo(tz_name)
     now = datetime.now(tz)
-    eleven_am = now.replace(hour=11, minute=0, second=0, microsecond=0)
-    midnight   = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    # If 11am hasn't passed yet today, expire there; otherwise wait for midnight
-    return eleven_am.timestamp() if now < eleven_am else midnight.timestamp()
+    # Refresh at 10:10, 14:10, 17:10, 19:10 local time to catch event starts/updates
+    checkpoints = [(10, 10), (14, 10), (17, 10), (19, 10)]
+    candidates = [
+        now.replace(hour=h, minute=m, second=0, microsecond=0)
+        for h, m in checkpoints
+        if now.replace(hour=h, minute=m, second=0, microsecond=0) > now
+    ]
+    midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    candidates.append(midnight)
+    return min(candidates).timestamp()
 
 
 async def fetch_quests(city: str, filter_codes: list[str]) -> dict:

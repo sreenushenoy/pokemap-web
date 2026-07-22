@@ -446,6 +446,14 @@ async function init() {
   await loadCities();
   startClocks();
   trackVisit();
+  setInterval(autoRefresh, 2 * 60 * 60 * 1000);
+}
+
+async function autoRefresh() {
+  if (!state.city) return;
+  // Re-fetch filters (clears server cache if expired) then re-fetch quests
+  await loadFilters(state.city);
+  if (state.activeSubFilters.length) await fetchAndRender();
 }
 
 async function trackVisit() {
