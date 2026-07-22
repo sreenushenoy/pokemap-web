@@ -108,11 +108,9 @@ TYPE_META = {
 
 
 def filter_code(type_num: int, id_field: bool, val: str) -> str:
-    parts = val.split("-")
-    base_val = parts[0]
+    base_val = val.split("-")[0]
     if id_field:
-        amount = parts[1] if len(parts) > 1 else "1"
-        return f"{type_num},{amount},{base_val}"
+        return f"{type_num},0,{base_val}"  # 0 = any amount, matches pokemap API format
     return f"{type_num},{base_val},0"
 
 

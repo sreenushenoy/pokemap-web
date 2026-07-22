@@ -114,12 +114,36 @@ async def fetch_available_filters(city: str) -> list:
     all_codes = [opt["code"] for g in normalized for opt in g["options"]]
     real_labels = await _learn_labels(city, all_codes)
 
-    # 4. Override with real labels and images wherever we learned them
+    # 4. Override labels and expand quantity variants for items / mega energy
     for g in normalized:
-        for opt in g["options"]:
-            if opt["code"] in real_labels:
-                opt["label"] = real_labels[opt["code"]]["label"]
-                opt["image"] = real_labels[opt["code"]]["image"]
+        if g["group"] in ("items", "mega"):
+            new_options = []
+            for opt in g["options"]:
+                t_num, _, base_id = opt["code"].split(",")
+                # Find all quantity variants for this item discovered from live quests
+                variants = {
+                    code: info for code, info in real_labels.items()
+                    if code.split(",")[0] == t_num and code.split(",")[2] == base_id
+                }
+                if len(variants) > 1:
+                    for code in sorted(variants, key=lambda c: int(c.split(",")[1])):
+                        amt = code.split(",")[1]
+                        info = variants[code]
+                        label = info["label"]
+                        if amt != "1":
+                            label = f"{amt}x {label}"
+                        new_options.append({"code": code, "label": label, "image": info["image"]})
+                elif variants:
+                    code, info = next(iter(variants.items()))
+                    new_options.append({"code": code, "label": info["label"], "image": info["image"]})
+                else:
+                    new_options.append(opt)
+            g["options"] = sorted(new_options, key=lambda o: o["label"])
+        else:
+            for opt in g["options"]:
+                if opt["code"] in real_labels:
+                    opt["label"] = real_labels[opt["code"]]["label"]
+                    opt["image"] = real_labels[opt["code"]]["image"]
 
     # 5. Cache until next midnight in this city's timezone
     expires = _next_cache_expiry(cfg["tz"])
