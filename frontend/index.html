@@ -484,7 +484,8 @@ const state = {
   checkedConditions: new Set(),
   areaFilter: false,
   map: null, layerGroups: {}, routeLayer: null,
-  browseMode: false, browseCity: null, browseQuests: [], browseConds: {}, browseFocusCond: null,
+  browseMode: false, browseCity: null, browseQuests: [], browseConds: {},
+  browseSelectedRewards: new Set(),  // "cond|||rewardLabel" keys
 };
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -668,7 +669,7 @@ async function selectCity(id) {
   state.activeGroup = null; state.activeSubFilters = [];
   state.quests = []; state.conditions = {}; state.activeCondition = null;
   state.checkedConditions = new Set(); state.areaFilter = false;
-  state.browseQuests = []; state.browseConds = {}; state.browseCity = null; state.browseFocusCond = null;
+  state.browseQuests = []; state.browseConds = {}; state.browseCity = null; state.browseSelectedRewards = new Set();
   const aBtn = document.getElementById('btnAreaFilter');
   if (aBtn) { aBtn.classList.remove('active'); aBtn.textContent = '⬚ This area only'; }
   document.querySelectorAll('.city-tab').forEach(t => t.classList.toggle('active', t.dataset.id === id));
@@ -919,7 +920,7 @@ async function enterBrowseMode() {
 
 function exitBrowseMode() {
   state.browseMode = false;
-  state.browseFocusCond = null;
+  state.browseSelectedRewards = new Set();
   document.getElementById('browseSection').style.display = 'none';
   document.getElementById('filterSection').style.display = '';
   document.getElementById('conditionsList').style.display = '';
@@ -946,10 +947,11 @@ function renderBrowseList(query) {
   el.innerHTML = '';
   for (const [cond, info] of entries) {
     const item = document.createElement('div');
-    item.className = 'browse-cond-item' + (state.browseFocusCond === cond ? ' active' : '');
+    const hasSelection = info.rewards.some(r => state.browseSelectedRewards.has(`${cond}|||${r.label}`));
+    item.className = 'browse-cond-item' + (hasSelection ? ' active' : '');
     item.dataset.cond = cond;
 
-    // Header — click selects all stops for this condition
+    // Header — click toggles all rewards for this condition
     const header = document.createElement('div');
     header.className = 'browse-cond-header';
     header.innerHTML = `
@@ -958,14 +960,17 @@ function renderBrowseList(query) {
     `;
     header.addEventListener('click', () => selectBrowseCondition(cond));
 
-    // Reward chips — each clickable to filter to that specific reward
+    // Reward chips — toggle individually for multi-select
     const chipsDiv = document.createElement('div');
     chipsDiv.className = 'browse-chips';
 
     info.rewards.forEach((r, i) => {
       const imgSrc = getSpriteUrl(r.image || '');
+      const isSelected = state.browseSelectedRewards.has(`${cond}|||${r.label}`);
       const chip = document.createElement('span');
-      chip.className = 'browse-chip' + (i >= BROWSE_VISIBLE ? ' browse-chip-hidden' : '');
+      chip.className = 'browse-chip'
+        + (isSelected ? ' chip-selected' : '')
+        + (i >= BROWSE_VISIBLE ? ' browse-chip-hidden' : '');
       if (i >= BROWSE_VISIBLE) chip.style.display = 'none';
       if (imgSrc) {
         const img = document.createElement('img');
@@ -976,7 +981,7 @@ function renderBrowseList(query) {
       const cnt = document.createElement('span');
       cnt.className = 'chip-cnt'; cnt.textContent = r.count;
       chip.appendChild(cnt);
-      chip.addEventListener('click', e => { e.stopPropagation(); selectBrowseReward(cond, r.label, chip); });
+      chip.addEventListener('click', e => { e.stopPropagation(); toggleBrowseReward(cond, r.label, chip, item); });
       chipsDiv.appendChild(chip);
     });
 
@@ -1001,41 +1006,65 @@ function toggleBrowseExpand(btn, chipsDiv, hiddenCount) {
   btn.dataset.expanded = String(!isExpanded);
 }
 
-function selectBrowseReward(cond, rewardLabel, chipEl) {
-  state.browseFocusCond = cond;
-  document.querySelectorAll('.browse-cond-item').forEach(el =>
-    el.classList.toggle('active', el.dataset.cond === cond)
-  );
-  document.querySelectorAll('.browse-chip.chip-selected').forEach(c => c.classList.remove('chip-selected'));
-  chipEl.classList.add('chip-selected');
-
-  state.quests = state.browseQuests.filter(q =>
-    (q.conditions_string || 'Unknown') === cond && q.rewards_string === rewardLabel
-  );
-  state.conditions = { [cond]: state.quests.length };
-  state.checkedConditions = new Set([cond]);
-  state.activeCondition = cond;
-
-  plotMarkers(); updateButtons(); fitMapToMarkers(); updateDrawerSummary();
+function toggleBrowseReward(cond, rewardLabel, chipEl, itemEl) {
+  const key = `${cond}|||${rewardLabel}`;
+  if (state.browseSelectedRewards.has(key)) {
+    state.browseSelectedRewards.delete(key);
+    chipEl.classList.remove('chip-selected');
+  } else {
+    state.browseSelectedRewards.add(key);
+    chipEl.classList.add('chip-selected');
+  }
+  const hasAny = [...state.browseSelectedRewards].some(k => k.startsWith(`${cond}|||`));
+  itemEl.classList.toggle('active', hasAny);
+  applyBrowseSelection();
 }
 
 function selectBrowseCondition(cond) {
-  state.browseFocusCond = cond;
-  document.querySelectorAll('.browse-cond-item').forEach(el =>
-    el.classList.toggle('active', el.dataset.cond === cond)
-  );
-  document.querySelectorAll('.browse-chip.chip-selected').forEach(c => c.classList.remove('chip-selected'));
+  // Toggle: if all rewards for this condition are already selected → deselect all; else select all
+  const info = state.browseConds[cond];
+  if (!info) return;
+  const allKeys = info.rewards.map(r => `${cond}|||${r.label}`);
+  const allSelected = allKeys.every(k => state.browseSelectedRewards.has(k));
+  const itemEl = document.querySelector(`.browse-cond-item[data-cond="${CSS.escape(cond)}"]`);
 
-  // Populate normal quest state so map, download, and area filter all work unchanged
-  state.quests = state.browseQuests.filter(q => (q.conditions_string || 'Unknown') === cond);
-  state.conditions = { [cond]: state.quests.length };
-  state.checkedConditions = new Set([cond]);
-  state.activeCondition = cond;
+  if (allSelected) {
+    allKeys.forEach(k => state.browseSelectedRewards.delete(k));
+    if (itemEl) {
+      itemEl.querySelectorAll('.browse-chip').forEach(c => c.classList.remove('chip-selected'));
+      itemEl.classList.remove('active');
+    }
+  } else {
+    allKeys.forEach(k => state.browseSelectedRewards.add(k));
+    if (itemEl) {
+      itemEl.querySelectorAll('.browse-chip').forEach(c => c.classList.add('chip-selected'));
+      itemEl.classList.add('active');
+    }
+  }
+  applyBrowseSelection();
+}
 
-  plotMarkers();
-  updateButtons();
-  fitMapToMarkers();
-  updateDrawerSummary();
+function applyBrowseSelection() {
+  if (!state.browseSelectedRewards.size) {
+    state.quests = []; state.conditions = {}; state.checkedConditions = new Set();
+    clearMap(); updateButtons(); updateDrawerSummary();
+    return;
+  }
+  const selected = [...state.browseSelectedRewards].map(k => {
+    const sep = k.indexOf('|||');
+    return { cond: k.slice(0, sep), reward: k.slice(sep + 3) };
+  });
+  state.quests = state.browseQuests.filter(q => {
+    const qc = q.conditions_string || 'Unknown', qr = q.rewards_string || '';
+    return selected.some(s => s.cond === qc && s.reward === qr);
+  });
+  state.conditions = {};
+  for (const q of state.quests) {
+    const c = q.conditions_string || 'Unknown';
+    state.conditions[c] = (state.conditions[c] || 0) + 1;
+  }
+  state.checkedConditions = new Set(Object.keys(state.conditions));
+  plotMarkers(); updateButtons(); fitMapToMarkers(); updateDrawerSummary();
 }
 
 // ── Conditions list ───────────────────────────────────────────────────────────
@@ -1167,9 +1196,13 @@ function downloadSelectedGpx() {
   const pts = computeRoute();
   if (!pts.length) return;
 
-  const label = (state.browseMode && state.browseFocusCond)
-    ? state.browseFocusCond
-    : (state.filters.find(g => g.group === state.activeGroup)?.label || 'Quest');
+  let label;
+  if (state.browseMode && state.browseSelectedRewards.size) {
+    const conds = new Set([...state.browseSelectedRewards].map(k => k.slice(0, k.indexOf('|||'))));
+    label = conds.size === 1 ? [...conds][0] : 'Multi Quest';
+  } else {
+    label = state.filters.find(g => g.group === state.activeGroup)?.label || 'Quest';
+  }
 
   const condList = [...state.checkedConditions];
   const title = condList.length === 1
