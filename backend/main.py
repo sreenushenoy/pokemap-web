@@ -173,7 +173,7 @@ async def download_gpx_zip(
     city: str = Query(...),
     filter: list[str] = Query([]),
     label: str = Query("Quest"),
-    top: int = Query(120, ge=10, le=500),
+    top: int = Query(120, ge=10, le=1000),
 ):
     """ZIP of one optimized GPX per condition group."""
     _require_city(city)
@@ -205,7 +205,7 @@ async def download_single_gpx(
     filter: list[str] = Query([]),
     label: str = Query("Quest"),
     condition: str = Query(...),
-    top: int = Query(120, ge=10, le=500),
+    top: int = Query(120, ge=10, le=1000),
 ):
     """Single optimized GPX for one condition."""
     _require_city(city)
