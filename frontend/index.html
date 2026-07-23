@@ -279,14 +279,27 @@
   .browse-cond-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
   .browse-cond-meta { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
   .browse-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .browse-cond-header { cursor: pointer; }
+  .browse-cond-header:hover .browse-cond-name { color: var(--blue); }
   .browse-chip {
-    display: flex; align-items: center; gap: 3px;
+    display: inline-flex; align-items: center; gap: 3px;
     padding: 2px 7px 2px 4px; background: var(--bg);
     border: 1px solid var(--border); border-radius: 20px;
     font-size: 11px; color: var(--muted);
+    cursor: pointer; transition: border-color .12s, color .12s;
   }
+  .browse-chip:hover { border-color: var(--blue); color: var(--text); }
+  .browse-chip.chip-selected { border-color: var(--accent); color: var(--accent); background: #1f1218; }
   .browse-chip img { width: 16px; height: 16px; object-fit: contain; }
-  .browse-chip .chip-cnt { color: var(--blue); font-weight: 600; }
+  .browse-chip .chip-cnt { color: var(--blue); font-weight: 600; margin-left: 2px; }
+  .browse-chip.chip-selected .chip-cnt { color: var(--accent); }
+  .browse-expand-btn {
+    display: inline-flex; align-items: center; padding: 2px 8px;
+    background: none; border: 1px dashed var(--border); border-radius: 20px;
+    font-size: 11px; color: var(--muted); cursor: pointer; font-family: inherit;
+    transition: border-color .12s, color .12s;
+  }
+  .browse-expand-btn:hover { border-color: var(--blue); color: var(--blue); }
 
   /* ── Map ── */
   #map { width: 100%; height: 100%; }
@@ -916,6 +929,8 @@ function onBrowseSearch(query) {
   renderBrowseList(query);
 }
 
+const BROWSE_VISIBLE = 5;
+
 function renderBrowseList(query) {
   const el = document.getElementById('browseList');
   const q = query.toLowerCase().trim();
@@ -934,22 +949,74 @@ function renderBrowseList(query) {
     item.className = 'browse-cond-item' + (state.browseFocusCond === cond ? ' active' : '');
     item.dataset.cond = cond;
 
-    const chipHtml = info.rewards.slice(0, 5).map(r => {
-      const imgSrc = getSpriteUrl(r.image || '');
-      const imgTag = imgSrc ? `<img src="${imgSrc}" alt="" onerror="this.style.display='none'">` : '';
-      const cntTag = r.count > 1 ? ` <span class="chip-cnt">${r.count}</span>` : '';
-      return `<span class="browse-chip">${imgTag}${escHtml(r.label)}${cntTag}</span>`;
-    }).join('');
-    const moreRewards = info.rewards.length > 5 ? `<span class="browse-chip">+${info.rewards.length - 5} more</span>` : '';
-
-    item.innerHTML = `
+    // Header — click selects all stops for this condition
+    const header = document.createElement('div');
+    header.className = 'browse-cond-header';
+    header.innerHTML = `
       <div class="browse-cond-name">${escHtml(cond)}</div>
       <div class="browse-cond-meta">${info.count} stop${info.count !== 1 ? 's' : ''} · ${info.rewards.length} reward type${info.rewards.length !== 1 ? 's' : ''}</div>
-      <div class="browse-chips">${chipHtml}${moreRewards}</div>
     `;
-    item.addEventListener('click', () => selectBrowseCondition(cond));
+    header.addEventListener('click', () => selectBrowseCondition(cond));
+
+    // Reward chips — each clickable to filter to that specific reward
+    const chipsDiv = document.createElement('div');
+    chipsDiv.className = 'browse-chips';
+
+    info.rewards.forEach((r, i) => {
+      const imgSrc = getSpriteUrl(r.image || '');
+      const chip = document.createElement('span');
+      chip.className = 'browse-chip' + (i >= BROWSE_VISIBLE ? ' browse-chip-hidden' : '');
+      if (i >= BROWSE_VISIBLE) chip.style.display = 'none';
+      if (imgSrc) {
+        const img = document.createElement('img');
+        img.src = imgSrc; img.alt = ''; img.onerror = () => img.remove();
+        chip.appendChild(img);
+      }
+      chip.appendChild(document.createTextNode(r.label));
+      const cnt = document.createElement('span');
+      cnt.className = 'chip-cnt'; cnt.textContent = r.count;
+      chip.appendChild(cnt);
+      chip.addEventListener('click', e => { e.stopPropagation(); selectBrowseReward(cond, r.label, chip); });
+      chipsDiv.appendChild(chip);
+    });
+
+    if (info.rewards.length > BROWSE_VISIBLE) {
+      const moreBtn = document.createElement('button');
+      moreBtn.className = 'browse-expand-btn';
+      moreBtn.textContent = `+${info.rewards.length - BROWSE_VISIBLE} more`;
+      moreBtn.addEventListener('click', e => { e.stopPropagation(); toggleBrowseExpand(moreBtn, chipsDiv, info.rewards.length - BROWSE_VISIBLE); });
+      chipsDiv.appendChild(moreBtn);
+    }
+
+    item.appendChild(header);
+    item.appendChild(chipsDiv);
     el.appendChild(item);
   }
+}
+
+function toggleBrowseExpand(btn, chipsDiv, hiddenCount) {
+  const isExpanded = btn.dataset.expanded === 'true';
+  chipsDiv.querySelectorAll('.browse-chip-hidden').forEach(c => c.style.display = isExpanded ? 'none' : 'inline-flex');
+  btn.textContent = isExpanded ? `+${hiddenCount} more` : 'Show less';
+  btn.dataset.expanded = String(!isExpanded);
+}
+
+function selectBrowseReward(cond, rewardLabel, chipEl) {
+  state.browseFocusCond = cond;
+  document.querySelectorAll('.browse-cond-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.cond === cond)
+  );
+  document.querySelectorAll('.browse-chip.chip-selected').forEach(c => c.classList.remove('chip-selected'));
+  chipEl.classList.add('chip-selected');
+
+  state.quests = state.browseQuests.filter(q =>
+    (q.conditions_string || 'Unknown') === cond && q.rewards_string === rewardLabel
+  );
+  state.conditions = { [cond]: state.quests.length };
+  state.checkedConditions = new Set([cond]);
+  state.activeCondition = cond;
+
+  plotMarkers(); updateButtons(); fitMapToMarkers(); updateDrawerSummary();
 }
 
 function selectBrowseCondition(cond) {
@@ -957,6 +1024,7 @@ function selectBrowseCondition(cond) {
   document.querySelectorAll('.browse-cond-item').forEach(el =>
     el.classList.toggle('active', el.dataset.cond === cond)
   );
+  document.querySelectorAll('.browse-chip.chip-selected').forEach(c => c.classList.remove('chip-selected'));
 
   // Populate normal quest state so map, download, and area filter all work unchanged
   state.quests = state.browseQuests.filter(q => (q.conditions_string || 'Unknown') === cond);
