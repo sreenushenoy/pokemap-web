@@ -354,12 +354,24 @@
   .popup-reward { font-size: 12px; color: var(--blue); margin-bottom: 2px; }
   .popup-cond { font-size: 11px; color: var(--muted); }
 
+  /* ── Touch: remove 300ms delay on all tappable elements ── */
+  button, input[type=checkbox], input[type=range], .filter-pill, .group-tab,
+  .condition-item, .browse-cond-item, .browse-chip, .city-tab {
+    touch-action: manipulation;
+  }
+
+  /* ── iPhone safe area ── */
+  .sidebar-footer {
+    padding-bottom: max(10px, calc(10px + env(safe-area-inset-bottom, 0px)));
+  }
+
   /* ── Mobile ── */
   @media (max-width: 767px) {
     .logo span:not(.logo-icon) { display: none; }
 
     .city-tab { min-width: 52px; padding: 4px 8px; }
     .city-tab .city-name { font-size: 10px; }
+    .city-tab .reset { display: none; }
 
     .main { grid-template-columns: 1fr; position: relative; }
 
@@ -367,11 +379,11 @@
       position: fixed;
       bottom: 0; left: 0; right: 0;
       width: 100%;
-      height: 72vh;
+      height: 80vh;
       border-right: none;
       border-top: 1px solid var(--border);
       border-radius: 18px 18px 0 0;
-      transform: translateY(calc(100% - 58px));
+      transform: translateY(calc(100% - 62px));
       transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
       z-index: 500;
       box-shadow: 0 -6px 30px rgba(0,0,0,0.5);
@@ -382,21 +394,38 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 10px 16px 6px;
+      padding: 10px 16px 8px;
       cursor: pointer;
       flex-shrink: 0;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
-      min-height: 58px;
+      min-height: 62px;
       justify-content: center;
     }
-    .drawer-pill { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 7px; }
-    .drawer-summary { font-size: 11px; color: var(--muted); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100vw - 40px); text-align: center; }
+    .drawer-pill { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 8px; }
+    .drawer-summary { font-size: 12px; color: var(--muted); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100vw - 40px); text-align: center; }
+
+    /* Bigger tap targets */
+    .group-tab { padding: 9px 13px; font-size: 13px; }
+    .filter-pill { padding: 7px 11px; font-size: 13px; min-height: 38px; }
+    .filter-pill img { width: 24px; height: 24px; }
+    .filter-pills { max-height: 160px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .conditions-scroll { -webkit-overflow-scrolling: touch; }
+    .browse-list { -webkit-overflow-scrolling: touch; }
+
+    .condition-item { min-height: 60px; }
+    .cond-check { width: 22px; height: 22px; }
+    .cond-name { font-size: 13px; }
+
+    /* Browse mode */
+    .browse-chip { font-size: 13px; padding: 5px 10px 5px 6px; min-height: 34px; }
+    .browse-chip img { width: 20px; height: 20px; }
+    .browse-expand-btn { font-size: 13px; padding: 5px 10px; min-height: 34px; }
+    .browse-cond-name { font-size: 14px; }
+    .browse-cond-meta { font-size: 12px; }
+    .browse-chips { gap: 6px; }
 
     .visit-badge { bottom: 70px; }
-    .cond-check { width: 20px; height: 20px; }
-    .condition-item { min-height: 56px; }
-    .filter-pills { max-height: 120px; }
   }
 </style>
 </head>
@@ -517,19 +546,42 @@ async function trackVisit() {
 function initDrawer() {
   const handle = document.getElementById('drawerHandle');
   const sidebar = document.getElementById('sidebar');
+
+  // Swipe up/down on handle to open/close; tap to toggle
+  let swipeY = 0;
+  handle.addEventListener('touchstart', e => { swipeY = e.touches[0].clientY; }, { passive: true });
+  handle.addEventListener('touchend', e => {
+    const delta = e.changedTouches[0].clientY - swipeY;
+    if (delta > 40 && sidebar.classList.contains('drawer-open')) sidebar.classList.remove('drawer-open');
+    else if (delta < -40 && !sidebar.classList.contains('drawer-open')) sidebar.classList.add('drawer-open');
+    else if (Math.abs(delta) < 10) sidebar.classList.toggle('drawer-open');
+  }, { passive: true });
+
   handle.addEventListener('click', () => sidebar.classList.toggle('drawer-open'));
   document.getElementById('map').addEventListener('click', () => sidebar.classList.remove('drawer-open'));
+}
+
+function closeDrawerOnMobile() {
+  if (window.innerWidth <= 767) {
+    document.getElementById('sidebar').classList.remove('drawer-open');
+  }
 }
 
 function updateDrawerSummary() {
   const el = document.getElementById('drawerSummary');
   if (!state.city) { el.textContent = 'Select a city to start'; return; }
-  if (!state.quests.length) { el.textContent = 'Select a reward type above'; return; }
+  if (state.browseMode) {
+    const sel = state.browseSelectedRewards.size;
+    if (!sel) { el.textContent = 'Tap a reward chip to plot stops'; return; }
+    el.textContent = `${sel} reward${sel > 1 ? 's' : ''} · ${state.quests.length} stops`;
+    return;
+  }
+  if (!state.quests.length) { el.textContent = state.filters.length ? 'Select a reward type' : 'No quests found today'; return; }
   const checked = state.checkedConditions.size;
   const stops = state.quests.filter(q => state.checkedConditions.has(q.conditions_string)).length;
   el.textContent = checked
     ? `${checked} condition${checked > 1 ? 's' : ''} · ${stops} stops selected`
-    : `${state.quests.length} stops · check conditions to select`;
+    : `${state.quests.length} stops · tap conditions to select`;
 }
 
 // ── Map ───────────────────────────────────────────────────────────────────────
@@ -871,6 +923,7 @@ async function fetchAndRender() {
     updateButtons();
     fitMapToMarkers();
     updateDrawerSummary();
+    if (state.quests.length) closeDrawerOnMobile();
   } catch(e) {
     document.getElementById('conditionsList').innerHTML =
       `<div class="empty-state"><div class="empty-icon">⚠️</div>${e.message}</div>`;
@@ -1065,6 +1118,7 @@ function applyBrowseSelection() {
   }
   state.checkedConditions = new Set(Object.keys(state.conditions));
   plotMarkers(); updateButtons(); fitMapToMarkers(); updateDrawerSummary();
+  if (state.quests.length) closeDrawerOnMobile();
 }
 
 // ── Conditions list ───────────────────────────────────────────────────────────
