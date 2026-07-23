@@ -1,7 +1,7 @@
 """Fetches quest data from pokemap sites, acting as a CORS proxy."""
 from __future__ import annotations
 
-import httpx, time
+import httpx, time, asyncio
 try:
     import zoneinfo
 except ImportError:
@@ -53,20 +53,25 @@ async def fetch_quests(city: str, filter_codes: list[str]) -> dict:
 
 async def _learn_labels(city: str, filter_codes: list[str]) -> dict[str, dict]:
     """
-    Fetch real quest data for all filter codes.
+    Fetch real quest data for all filter codes concurrently.
     Returns {filter_code: {label, image}}.
     """
-    results: dict[str, dict] = {}
-    for i in range(0, len(filter_codes), 50):
-        batch = filter_codes[i : i + 50]
+    batches = [filter_codes[i : i + 50] for i in range(0, len(filter_codes), 50)]
+
+    async def fetch_batch(batch):
         try:
-            data = await fetch_quests(city, batch)
+            return await fetch_quests(city, batch)
         except Exception:
-            continue
+            return {}
+
+    responses = await asyncio.gather(*[fetch_batch(b) for b in batches])
+
+    results: dict[str, dict] = {}
+    for data in responses:
         for q in data.get("quests", []):
-            t   = q.get("rewards_types", "")
-            amt = q.get("rewards_amounts", "")
-            rid = q.get("rewards_ids", "")
+            t   = str(q.get("rewards_types", ""))
+            amt = str(q.get("rewards_amounts", ""))
+            rid = str(q.get("rewards_ids", ""))
             code = f"{t},{amt},{rid}"
             if code and q.get("rewards_string") and code not in results:
                 label = q["rewards_string"]
@@ -153,8 +158,10 @@ async def fetch_available_filters(city: str) -> list:
                     opt["label"] = real_labels[opt["code"]]["label"]
                     opt["image"] = real_labels[opt["code"]]["image"]
 
-    # 5. Cache until next midnight in this city's timezone
-    expires = _next_cache_expiry(cfg["tz"])
-    _filter_cache[city] = (normalized, expires)
+    # 5. Only cache non-empty results — don't cache an empty result so the next
+    # request retries rather than serving stale emptiness all day.
+    if normalized:
+        expires = _next_cache_expiry(cfg["tz"])
+        _filter_cache[city] = (normalized, expires)
 
     return normalized

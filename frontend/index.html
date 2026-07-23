@@ -259,6 +259,35 @@
   .total-badge { margin-left: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 2px 8px; font-size: 11px; color: var(--muted); }
   .total-badge b { color: var(--text); }
 
+  /* ── Browse by Quest ── */
+  #browseSection { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+  .browse-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .quest-search-input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 13px; padding: 7px 10px;
+    font-family: inherit; outline: none; margin: 8px 14px 0; width: calc(100% - 28px);
+    flex-shrink: 0;
+  }
+  .quest-search-input:focus { border-color: var(--blue); }
+  .browse-list { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  .browse-cond-item {
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background .12s;
+  }
+  .browse-cond-item:hover { background: var(--card); }
+  .browse-cond-item.active { background: #0d1f33; border-left: 3px solid var(--blue); padding-left: 11px; }
+  .browse-cond-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+  .browse-cond-meta { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .browse-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .browse-chip {
+    display: flex; align-items: center; gap: 3px;
+    padding: 2px 7px 2px 4px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 20px;
+    font-size: 11px; color: var(--muted);
+  }
+  .browse-chip img { width: 16px; height: 16px; object-fit: contain; }
+  .browse-chip .chip-cnt { color: var(--blue); font-weight: 600; }
+
   /* ── Map ── */
   #map { width: 100%; height: 100%; }
 
@@ -387,6 +416,17 @@
 
     <div class="conditions-scroll" id="conditionsList"></div>
 
+    <!-- Browse by Quest mode -->
+    <div id="browseSection" style="display:none">
+      <div class="browse-header">
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:11px;min-height:0;flex-shrink:0" onclick="exitBrowseMode()">← Rewards</button>
+        <span class="section-title" style="margin:0;flex:1">Browse by Quest</span>
+        <span class="total-badge" id="browseTotalBadge" style="display:none"><b id="browseTotalNum">0</b> stops</span>
+      </div>
+      <input id="questSearch" type="text" class="quest-search-input" placeholder="Search quest conditions…" oninput="onBrowseSearch(this.value)" />
+      <div class="browse-list" id="browseList"></div>
+    </div>
+
     <div class="sidebar-footer">
       <div class="top-row">
         <span>Max stops/route</span>
@@ -431,6 +471,7 @@ const state = {
   checkedConditions: new Set(),
   areaFilter: false,
   map: null, layerGroups: {}, routeLayer: null,
+  browseMode: false, browseCity: null, browseQuests: [], browseConds: {}, browseFocusCond: null,
 };
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -614,10 +655,12 @@ async function selectCity(id) {
   state.activeGroup = null; state.activeSubFilters = [];
   state.quests = []; state.conditions = {}; state.activeCondition = null;
   state.checkedConditions = new Set(); state.areaFilter = false;
+  state.browseQuests = []; state.browseConds = {}; state.browseCity = null; state.browseFocusCond = null;
   const aBtn = document.getElementById('btnAreaFilter');
   if (aBtn) { aBtn.classList.remove('active'); aBtn.textContent = '⬚ This area only'; }
   document.querySelectorAll('.city-tab').forEach(t => t.classList.toggle('active', t.dataset.id === id));
   clearMap(); renderConditions(); showFilterLoading();
+  if (state.browseMode) exitBrowseMode();
   await loadFilters(id);
   updateButtons(); updateDrawerSummary();
   if (CITY_CENTERS[id]) state.map.setView(CITY_CENTERS[id], 12);
@@ -633,11 +676,17 @@ function showFilterLoading() {
 async function loadFilters(city) {
   try {
     const res = await fetch(`${API}/api/filters?city=${city}`);
-    state.filters = await res.json();
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    state.filters = Array.isArray(data) ? data : [];
     renderFilterSection();
   } catch(e) {
+    state.filters = [];
     document.getElementById('filterSection').innerHTML =
-      `<div class="empty-state"><div class="empty-icon">⚠️</div>${e.message}</div>`;
+      `<div class="empty-state"><div class="empty-icon">⚠️</div>Failed to load quests: ${e.message}</div>`;
   }
 }
 
@@ -651,6 +700,7 @@ function renderFilterSection() {
     <div style="display:flex;align-items:center;margin-bottom:9px;">
       <div class="section-title" style="margin:0">Reward Type</div>
       <div class="total-badge" id="totalBadge" style="display:none"><b id="totalNum">0</b> stops</div>
+      <button class="btn btn-secondary" onclick="enterBrowseMode()" style="margin-left:6px;padding:3px 9px;font-size:11px;min-height:0;flex-shrink:0" title="Browse quests by condition">🔍 Quest</button>
     </div>
     <div class="group-tabs" id="groupTabs"></div>
     <div class="filter-pills" id="filterPills"></div>
@@ -770,11 +820,16 @@ async function fetchAndRender() {
 
   try {
     const res = await fetch(`${API}/api/quests?${params}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
     const data = await res.json();
+    const rawQuests = data.quests || [];
 
     // Client-side filter: pokemap APIs sometimes ignore the id/amount in the filter code
     const parsed = state.activeSubFilters.map(code => { const [t,amt,id]=code.split(','); return {t,amt,id}; });
-    state.quests = (data.quests || []).filter(q =>
+    state.quests = rawQuests.filter(q =>
       parsed.some(f => {
         if (String(q.rewards_types) !== f.t) return false;
         if (f.id && f.id !== '0' && String(q.rewards_ids) !== f.id) return false;
@@ -782,6 +837,13 @@ async function fetchAndRender() {
         return true;
       })
     );
+
+    // If raw quests came back but client-side filter removed all of them,
+    // fall back to raw to avoid a blank screen (field names may differ across pokemaps)
+    if (!state.quests.length && rawQuests.length) {
+      state.quests = rawQuests;
+    }
+
     state.conditions = {};
     for (const q of state.quests) {
       const c = q.conditions_string || 'Unknown';
@@ -799,6 +861,113 @@ async function fetchAndRender() {
     document.getElementById('conditionsList').innerHTML =
       `<div class="empty-state"><div class="empty-icon">⚠️</div>${e.message}</div>`;
   }
+}
+
+// ── Browse by Quest ───────────────────────────────────────────────────────────
+async function enterBrowseMode() {
+  if (!state.city || !state.filters.length) return;
+  state.browseMode = true;
+  state.browseFocusCond = null;
+  document.getElementById('filterSection').style.display = 'none';
+  document.getElementById('conditionsList').style.display = 'none';
+  const bs = document.getElementById('browseSection');
+  bs.style.display = 'flex';
+  bs.style.flexDirection = 'column';
+  document.getElementById('questSearch').value = '';
+
+  // Use cached data if city hasn't changed
+  if (state.browseCity === state.city && state.browseQuests.length) {
+    renderBrowseList('');
+    return;
+  }
+
+  document.getElementById('browseList').innerHTML =
+    '<div class="loading"><div class="spinner"></div> Loading all quests…</div>';
+  document.getElementById('browseTotalBadge').style.display = 'none';
+
+  try {
+    const res = await fetch(`${API}/api/quests/browse?city=${state.city}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    state.browseQuests = data.quests || [];
+    state.browseConds = data.conditions || {};
+    state.browseCity = state.city;
+    document.getElementById('browseTotalBadge').style.display = '';
+    document.getElementById('browseTotalNum').textContent = data.total || 0;
+    renderBrowseList('');
+  } catch(e) {
+    document.getElementById('browseList').innerHTML =
+      `<div class="empty-state"><div class="empty-icon">⚠️</div>${e.message}</div>`;
+  }
+}
+
+function exitBrowseMode() {
+  state.browseMode = false;
+  state.browseFocusCond = null;
+  document.getElementById('browseSection').style.display = 'none';
+  document.getElementById('filterSection').style.display = '';
+  document.getElementById('conditionsList').style.display = '';
+}
+
+function onBrowseSearch(query) {
+  renderBrowseList(query);
+}
+
+function renderBrowseList(query) {
+  const el = document.getElementById('browseList');
+  const q = query.toLowerCase().trim();
+  const entries = Object.entries(state.browseConds)
+    .filter(([cond]) => !q || cond.toLowerCase().includes(q))
+    .sort((a, b) => b[1].count - a[1].count);
+
+  if (!entries.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div>No matching quest conditions.</div>';
+    return;
+  }
+
+  el.innerHTML = '';
+  for (const [cond, info] of entries) {
+    const item = document.createElement('div');
+    item.className = 'browse-cond-item' + (state.browseFocusCond === cond ? ' active' : '');
+    item.dataset.cond = cond;
+
+    const chipHtml = info.rewards.slice(0, 5).map(r => {
+      const imgSrc = getSpriteUrl(r.image || '');
+      const imgTag = imgSrc ? `<img src="${imgSrc}" alt="" onerror="this.style.display='none'">` : '';
+      const cntTag = r.count > 1 ? ` <span class="chip-cnt">${r.count}</span>` : '';
+      return `<span class="browse-chip">${imgTag}${escHtml(r.label)}${cntTag}</span>`;
+    }).join('');
+    const moreRewards = info.rewards.length > 5 ? `<span class="browse-chip">+${info.rewards.length - 5} more</span>` : '';
+
+    item.innerHTML = `
+      <div class="browse-cond-name">${escHtml(cond)}</div>
+      <div class="browse-cond-meta">${info.count} stop${info.count !== 1 ? 's' : ''} · ${info.rewards.length} reward type${info.rewards.length !== 1 ? 's' : ''}</div>
+      <div class="browse-chips">${chipHtml}${moreRewards}</div>
+    `;
+    item.addEventListener('click', () => selectBrowseCondition(cond));
+    el.appendChild(item);
+  }
+}
+
+function selectBrowseCondition(cond) {
+  state.browseFocusCond = cond;
+  document.querySelectorAll('.browse-cond-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.cond === cond)
+  );
+
+  // Populate normal quest state so map, download, and area filter all work unchanged
+  state.quests = state.browseQuests.filter(q => (q.conditions_string || 'Unknown') === cond);
+  state.conditions = { [cond]: state.quests.length };
+  state.checkedConditions = new Set([cond]);
+  state.activeCondition = cond;
+
+  plotMarkers();
+  updateButtons();
+  fitMapToMarkers();
+  updateDrawerSummary();
 }
 
 // ── Conditions list ───────────────────────────────────────────────────────────

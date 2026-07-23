@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
-import io, os
+import io, os, asyncio
 
 from cities import CITIES
 from proxy import fetch_quests, fetch_available_filters
@@ -64,6 +64,15 @@ async def get_filters(city: str = Query(...)):
         raise HTTPException(502, f"Failed to fetch filters from {city}: {e}")
 
 
+@app.post("/api/filters/refresh")
+async def refresh_filters(city: str = Query(...)):
+    """Force-expire the filter cache for a city so the next /api/filters call re-fetches."""
+    from proxy import _filter_cache
+    _require_city(city)
+    _filter_cache.pop(city, None)
+    return {"cleared": city}
+
+
 # ── Quest data ─────────────────────────────────────────────────────────────────
 
 @app.get("/api/quests")
@@ -93,6 +102,68 @@ async def get_quests(
         "conditions": conditions,
         "quests": quests,
     }
+
+
+@app.get("/api/quests/browse")
+async def browse_quests(city: str = Query(...)):
+    """Fetch every quest for a city (all reward types), grouped by quest condition."""
+    _require_city(city)
+
+    try:
+        filters = await fetch_available_filters(city)
+    except Exception as e:
+        raise HTTPException(502, f"Failed to fetch filters: {e}")
+
+    all_codes = [opt["code"] for g in filters for opt in g["options"]]
+    if not all_codes:
+        return {"total": 0, "conditions": {}, "quests": []}
+
+    # Fetch all reward types concurrently in batches of 50
+    batches = [all_codes[i : i + 50] for i in range(0, len(all_codes), 50)]
+
+    async def _batch(codes):
+        try:
+            data = await fetch_quests(city, codes)
+            return data.get("quests", [])
+        except Exception:
+            return []
+
+    batch_results = await asyncio.gather(*[_batch(b) for b in batches])
+
+    # Deduplicate by (lat, lng) — each stop has exactly one quest per day
+    seen: set = set()
+    all_quests: list = []
+    for batch in batch_results:
+        for q in batch:
+            key = (q.get("lat"), q.get("lng"))
+            if key not in seen:
+                seen.add(key)
+                all_quests.append(q)
+
+    # Group by conditions_string, collect unique rewards per condition
+    conditions: dict = {}
+    for q in all_quests:
+        cond = q.get("conditions_string") or "Unknown"
+        reward = q.get("rewards_string") or ""
+        image = q.get("image") or ""
+
+        if cond not in conditions:
+            conditions[cond] = {"count": 0, "rewards": {}}
+        conditions[cond]["count"] += 1
+
+        if reward and reward not in conditions[cond]["rewards"]:
+            conditions[cond]["rewards"][reward] = {"count": 0, "image": image}
+        if reward:
+            conditions[cond]["rewards"][reward]["count"] += 1
+
+    # Flatten rewards dicts to sorted lists
+    for cond in conditions:
+        conditions[cond]["rewards"] = sorted(
+            [{"label": k, **v} for k, v in conditions[cond]["rewards"].items()],
+            key=lambda r: -r["count"],
+        )
+
+    return {"total": len(all_quests), "conditions": conditions, "quests": all_quests}
 
 
 # ── GPX downloads ──────────────────────────────────────────────────────────────
