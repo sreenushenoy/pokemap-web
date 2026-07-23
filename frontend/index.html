@@ -1098,15 +1098,26 @@ function buildGpx(title, waypoints) {
 function downloadSelectedGpx() {
   const pts = computeRoute();
   if (!pts.length) return;
-  const label = state.filters.find(g=>g.group===state.activeGroup)?.label || 'Quest';
+
+  const label = (state.browseMode && state.browseFocusCond)
+    ? state.browseFocusCond
+    : (state.filters.find(g => g.group === state.activeGroup)?.label || 'Quest');
+
   const condList = [...state.checkedConditions];
-  const title = condList.length===1
+  const title = condList.length === 1
     ? `${label} — ${condList[0]}`
     : `${label} (${condList.length} conditions, ${pts.length} stops)`;
-  const slug = label.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,30);
-  const blob = new Blob([buildGpx(title,pts)], { type:'application/gpx+xml' });
+
+  const cityName = state.cityMeta.find(c => c.id === state.city)?.name || state.city || 'City';
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const toSlug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const filename = `Pokemap_${toSlug(cityName)}_${toSlug(label).slice(0, 30)}_${dd}_${mm}.gpx`;
+
+  const blob = new Blob([buildGpx(title, pts)], { type: 'application/gpx+xml' });
   const url = URL.createObjectURL(blob);
-  Object.assign(document.createElement('a'),{href:url,download:`pokemap_${slug}.gpx`}).click();
+  Object.assign(document.createElement('a'), { href: url, download: filename }).click();
   URL.revokeObjectURL(url);
 }
 
